@@ -1,0 +1,2 @@
+example.com. SOA
+www.example.com. A

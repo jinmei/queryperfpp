@@ -14,7 +14,13 @@
 
 #include <query_repository.h>
 
+#include <dns/name.h>
 #include <dns/message.h>
+#include <dns/opcode.h>
+#include <dns/rcode.h>
+#include <dns/rrclass.h>
+#include <dns/rrtype.h>
+#include <dns/question.h>
 
 #include <boost/scoped_ptr.hpp>
 
@@ -50,7 +56,7 @@ QueryRepository::QueryRepository(const string& input_file) :
 {
     if (impl_->input_.fail()) {
         delete impl_;
-        throw 42;               // FIX IT LATER
+        throw QueryRepositoryError("failed to input data file: " + input_file);
     }
 }
 
@@ -67,9 +73,23 @@ QueryRepository::getNextQuery(Message& query_msg) {
         if (impl_->input_.eof()) {
             impl_->input_.clear();
             impl_->input_.seekg(0);
+        } else if (impl_->input_.bad() || impl_->input_.fail()) {
+            throw QueryRepositoryError("unexpected failure in reading input "
+                                       "data");
         }
     }
-    query_msg.clear(Message::PARSE);
+
+    stringstream ss(line);
+    string qname_text, qtype_text;
+    ss >> qname_text >> qtype_text;
+    query_msg.clear(Message::RENDER);
+    query_msg.setOpcode(Opcode::QUERY());
+    query_msg.setRcode(Rcode::NOERROR());
+    query_msg.setHeaderFlag(Message::HEADERFLAG_RD);
+    query_msg.addQuestion(QuestionPtr(new Question(Name(qname_text),
+                                                   RRClass::IN(),
+                                                   RRType(qtype_text))));
+
     return (line);
 }
 

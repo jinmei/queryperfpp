@@ -21,8 +21,16 @@
 
 #include <istream>
 #include <string>
+#include <stdexcept>
 
 namespace Queryperf {
+
+class QueryRepositoryError : public std::runtime_error {
+public:
+    QueryRepositoryError(const std::string& what_arg) :
+        std::runtime_error(what_arg)
+    {}
+};
 
 class QueryRepository : private boost::noncopyable {
 public:

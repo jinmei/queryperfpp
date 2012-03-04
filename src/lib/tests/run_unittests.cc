@@ -14,9 +14,17 @@
 
 #include <gtest/gtest.h>
 
+#include <iostream>
+#include <stdexcept>
+
 int
 main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
 
-    return (RUN_ALL_TESTS());
+    try {
+        return (RUN_ALL_TESTS());
+    } catch (const std::exception& ex) {
+        std::cerr << "Test threw exception: " << ex.what() << std::endl;
+        throw;
+    }
 }

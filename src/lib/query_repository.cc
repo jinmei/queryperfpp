@@ -32,6 +32,11 @@ using namespace std;
 using boost::scoped_ptr;
 using namespace isc::dns;
 
+namespace {
+// an ad hoc threadshold to prevent a busy loop due to an empty input file.
+const size_t MAX_EMPTY_LOOP = 1000;
+}
+
 namespace Queryperf {
 
 struct QueryRepository::QueryRepositoryImpl {
@@ -64,33 +69,54 @@ QueryRepository::~QueryRepository() {
     delete impl_;
 }
 
-string
+void
 QueryRepository::getNextQuery(Message& query_msg) {
-    string line;
+    QuestionPtr question;
 
-    while (line.empty()) {
-        getline(impl_->input_, line);
-        if (impl_->input_.eof()) {
-            impl_->input_.clear();
-            impl_->input_.seekg(0);
-        } else if (impl_->input_.bad() || impl_->input_.fail()) {
-            throw QueryRepositoryError("unexpected failure in reading input "
-                                       "data");
+    while (!question) {
+        string line;
+        size_t loop_count = 0;
+        while (line.empty()) {
+            if (loop_count++ == MAX_EMPTY_LOOP) {
+                throw QueryRepositoryError("failed to get input line too long,"
+                                           " possibly an empty input?");
+            }
+            getline(impl_->input_, line);
+            if (impl_->input_.eof()) {
+                impl_->input_.clear();
+                impl_->input_.seekg(0);
+            } else if (impl_->input_.bad() || impl_->input_.fail()) {
+                throw QueryRepositoryError("unexpected failure in reading "
+                                           "input data");
+            }
+            if (line[0] == ';') { // comment check (note it's safe to see [0])
+                line.clear();     // force ingoring this line.
+            }
+        }
+
+        stringstream ss(line);
+        string qname_text, qtype_text;
+        ss >> qname_text >> qtype_text;
+        if (ss.bad() || ss.fail() || !ss.eof()) {
+            // Ignore the line is organized in an unexpected way.
+            continue;
+        }
+        try {
+            question.reset(new Question(Name(qname_text), RRClass::IN(),
+                                        RRType(qtype_text)));
+        } catch (const isc::Exception&) {
+            // The input data may contain bad string, which would trigger an
+            // exception.  We ignore them and continue reading until we find
+            // a valid one.
+            ;
         }
     }
 
-    stringstream ss(line);
-    string qname_text, qtype_text;
-    ss >> qname_text >> qtype_text;
     query_msg.clear(Message::RENDER);
     query_msg.setOpcode(Opcode::QUERY());
     query_msg.setRcode(Rcode::NOERROR());
     query_msg.setHeaderFlag(Message::HEADERFLAG_RD);
-    query_msg.addQuestion(QuestionPtr(new Question(Name(qname_text),
-                                                   RRClass::IN(),
-                                                   RRType(qtype_text))));
-
-    return (line);
+    query_msg.addQuestion(question);
 }
 
 } // end of QueryPerf

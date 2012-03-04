@@ -38,7 +38,7 @@ public:
     explicit QueryRepository(const std::string& input_file);
     ~QueryRepository();
 
-    std::string getNextQuery(isc::dns::Message& message);
+    void getNextQuery(isc::dns::Message& message);
 
 private:
     struct QueryRepositoryImpl;

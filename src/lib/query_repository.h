@@ -15,15 +15,21 @@
 #ifndef __QUERY_REPOSITORY_H
 #define __QUERY_REPOSITORY_H 1
 
+#include <istream>
 #include <string>
 
 namespace Queryperf {
 
 class QueryRepository {
 public:
-    QueryRepository(const std::string& file);
+    QueryRepository(std::istream& input);
+    ~QueryRepository();
 
     std::string getNextQuery();
+
+private:
+    struct QueryRepositoryImpl;
+    QueryRepositoryImpl* impl_;
 };
 
 } // end of QueryPerf

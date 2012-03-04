@@ -14,13 +14,39 @@
 
 #include <query_repository.h>
 
+#include <istream>
 #include <string>
 
 using namespace std;
 
 namespace Queryperf {
 
-QueryRepository::QueryRepository(const string&) {
+struct QueryRepository::QueryRepositoryImpl {
+    QueryRepositoryImpl(std::istream& input) : input_(input) {}
+    istream& input_;
+};
+
+QueryRepository::QueryRepository(istream& input) :
+    impl_(new QueryRepositoryImpl(input))
+{
+}
+
+QueryRepository::~QueryRepository() {
+    delete impl_;
+}
+
+string
+QueryRepository::getNextQuery() {
+    string line;
+
+    while (line.empty()) {
+        getline(impl_->input_, line);
+        if (impl_->input_.eof()) {
+            impl_->input_.clear();
+            impl_->input_.seekg(0);
+        }
+    }
+    return (line);
 }
 
 } // end of QueryPerf

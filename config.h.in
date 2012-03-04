@@ -1,5 +1,25 @@
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 
+/* Define to 1 if you have the <boost/bind.hpp> header file. */
+#undef HAVE_BOOST_BIND_HPP
+
+/* Define to 1 if you have the
+   <boost/date_time/posix_time/posix_time_types.hpp> header file. */
+#undef HAVE_BOOST_DATE_TIME_POSIX_TIME_POSIX_TIME_TYPES_HPP
+
+/* Define to 1 if you have the <boost/foreach.hpp> header file. */
+#undef HAVE_BOOST_FOREACH_HPP
+
+/* Define to 1 if you have the <boost/function.hpp> header file. */
+#undef HAVE_BOOST_FUNCTION_HPP
+
+/* Define to 1 if you have the
+   <boost/interprocess/sync/interprocess_upgradable_mutex.hpp> header file. */
+#undef HAVE_BOOST_INTERPROCESS_SYNC_INTERPROCESS_UPGRADABLE_MUTEX_HPP
+
+/* Define to 1 if you have the <boost/shared_ptr.hpp> header file. */
+#undef HAVE_BOOST_SHARED_PTR_HPP
+
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #undef HAVE_DLFCN_H
 

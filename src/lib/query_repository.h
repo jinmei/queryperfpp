@@ -15,12 +15,14 @@
 #ifndef __QUERY_REPOSITORY_H
 #define __QUERY_REPOSITORY_H 1
 
+#include <boost/noncopyable.hpp>
+
 #include <istream>
 #include <string>
 
 namespace Queryperf {
 
-class QueryRepository {
+class QueryRepository : private boost::noncopyable {
 public:
     QueryRepository(std::istream& input);
     ~QueryRepository();

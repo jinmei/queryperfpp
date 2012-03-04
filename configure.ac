@@ -113,6 +113,35 @@ AC_SUBST(GTEST_INCLUDES)
 AC_SUBST(GTEST_LDFLAGS)
 AC_SUBST(GTEST_LDADD)
 
+#
+# Configure Boost header path
+#
+# If explicitly specified, use it.
+AC_ARG_WITH([boost-include],
+  AC_HELP_STRING([--with-boost-include=PATH],
+    [specify exact directory for Boost headers]),
+    [boost_include_path="$withval"])
+# If not specified, try some common paths.
+if test -z "$with_boost_include"; then
+	boostdirs="/usr/local /usr/pkg /opt /opt/local"
+	for d in $boostdirs
+	do
+		if test -f $d/include/boost/shared_ptr.hpp; then
+			boost_include_path=$d/include
+			break
+		fi
+	done
+fi
+CPPFLAGS_SAVES="$CPPFLAGS"
+if test "${boost_include_path}" ; then
+	BOOST_INCLUDES="-I${boost_include_path}"
+	CPPFLAGS="$CPPFLAGS $BOOST_INCLUDES"
+fi
+AC_CHECK_HEADERS([boost/shared_ptr.hpp boost/foreach.hpp boost/interprocess/sync/interprocess_upgradable_mutex.hpp boost/date_time/posix_time/posix_time_types.hpp boost/bind.hpp boost/function.hpp],,
+  AC_MSG_ERROR([Missing required header files.]))
+CPPFLAGS="$CPPFLAGS_SAVES"
+AC_SUBST(BOOST_INCLUDES)
+
 # Checks for header files.
 
 # Checks for typedefs, structures, and compiler characteristics.

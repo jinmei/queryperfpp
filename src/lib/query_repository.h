@@ -24,7 +24,8 @@ namespace Queryperf {
 
 class QueryRepository : private boost::noncopyable {
 public:
-    QueryRepository(std::istream& input);
+    explicit QueryRepository(std::istream& input);
+    explicit QueryRepository(const std::string& input_file);
     ~QueryRepository();
 
     std::string getNextQuery();

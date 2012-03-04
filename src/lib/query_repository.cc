@@ -14,21 +14,41 @@
 
 #include <query_repository.h>
 
+#include <boost/scoped_ptr.hpp>
+
 #include <istream>
+#include <fstream>
 #include <string>
 
 using namespace std;
+using boost::scoped_ptr;
 
 namespace Queryperf {
 
 struct QueryRepository::QueryRepositoryImpl {
-    QueryRepositoryImpl(std::istream& input) : input_(input) {}
+    QueryRepositoryImpl(istream& input) : input_(input) {}
+
+    QueryRepositoryImpl(const string& input_file) :
+        input_ifs_(new ifstream(input_file.c_str())),
+        input_(*input_ifs_)
+    {}
+
+    scoped_ptr<ifstream> input_ifs_;
     istream& input_;
 };
 
 QueryRepository::QueryRepository(istream& input) :
     impl_(new QueryRepositoryImpl(input))
 {
+}
+
+QueryRepository::QueryRepository(const string& input_file) :
+    impl_(new QueryRepositoryImpl(input_file))
+{
+    if (impl_->input_.fail()) {
+        delete impl_;
+        throw 42;               // FIX IT LATER
+    }
 }
 
 QueryRepository::~QueryRepository() {

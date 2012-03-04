@@ -14,6 +14,8 @@
 
 #include <query_repository.h>
 
+#include <dns/message.h>
+
 #include <boost/scoped_ptr.hpp>
 
 #include <istream>
@@ -22,6 +24,7 @@
 
 using namespace std;
 using boost::scoped_ptr;
+using namespace isc::dns;
 
 namespace Queryperf {
 
@@ -56,7 +59,7 @@ QueryRepository::~QueryRepository() {
 }
 
 string
-QueryRepository::getNextQuery() {
+QueryRepository::getNextQuery(Message& query_msg) {
     string line;
 
     while (line.empty()) {
@@ -66,6 +69,7 @@ QueryRepository::getNextQuery() {
             impl_->input_.seekg(0);
         }
     }
+    query_msg.clear(Message::PARSE);
     return (line);
 }
 

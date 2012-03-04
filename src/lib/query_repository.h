@@ -15,6 +15,8 @@
 #ifndef __QUERY_REPOSITORY_H
 #define __QUERY_REPOSITORY_H 1
 
+#include <dns/message.h>
+
 #include <boost/noncopyable.hpp>
 
 #include <istream>
@@ -28,7 +30,7 @@ public:
     explicit QueryRepository(const std::string& input_file);
     ~QueryRepository();
 
-    std::string getNextQuery();
+    std::string getNextQuery(isc::dns::Message& message);
 
 private:
     struct QueryRepositoryImpl;

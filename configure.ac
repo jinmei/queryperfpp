@@ -5,6 +5,7 @@ AC_PREREQ([2.68])
 AC_INIT(queryperfpp, 0.1, jinmei@wide.ad.jp)
 AC_CONFIG_SRCDIR(README)
 AM_INIT_AUTOMAKE
+m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])dnl be backward compatible
 AC_CONFIG_HEADERS([config.h])
 
 # Checks for programs.
@@ -15,7 +16,70 @@ AC_LANG([C++])
 
 # Checks for libraries.
 
-# Check for availability of gootletest.
+# Check for BIND10 libdns++ headers
+AC_ARG_WITH(bind10-include,
+  AC_HELP_STRING([--with-bind10-include=PATH],
+  [specify a path to BIND 10 header files
+   (PATH, often needs to be in a BIND 10 source such as
+   <somewhere>/bind10/src/lib)]),
+    bind10_inc_path="$withval", bind10_inc_path="no")
+# If not specified, try some common paths.
+if test "$bind10_inc_path" = "no"; then
+	bind10dirs="/usr/local /usr/pkg /opt /opt/local"
+	for d in $bind10dirs
+	do
+		if test -f $d/dns/message.h; then
+			bind10_inc_path=$d
+			break
+		fi
+	done
+fi
+CPPFLAGS_SAVES="$CPPFLAGS"
+if test "${bind10_inc_path}" ; then
+	BIND10_INCLUDES="-I${bind10_inc_path}"
+	CPPFLAGS="$CPPFLAGS $BIND10_INCLUDES"
+fi
+AC_CHECK_HEADERS([dns/message.h],,
+  AC_MSG_ERROR([Missing required BIND 10 header files.]))
+CPPFLAGS="$CPPFLAGS_SAVES"
+AC_SUBST(BIND10_INCLUDES)
+
+# Check for BIND10 lib libraries
+AC_ARG_WITH(bind10-lib,
+  AC_HELP_STRING([--with-bind10-lib=PATH],
+  [specify a path to BIND 10 library files (PATH/lib)]),
+    bind10_lib_path="$withval", bind10_lib_path="no")
+
+if test bind10_lib_path != "no"; then
+	BIND10_LDFLAGS="-L$bind10_lib_path/lib"
+fi
+BIND10_LDADD="-ldns++ -lutil -lexceptions"
+
+CPPFLAGS_SAVED="$CPPFLAGS"
+CPPFLAGS="$CPPFLAGS $BIND10_INCLUDES"
+LDFLAGS_SAVED="$LDFLAGS"
+LDFLAGS="$LDFLAGS $BIND10_LDFLAGS"
+LIBS_SAVED=$LIBS
+LIBS="$LIBS $BIND10_LDADD"
+
+AC_MSG_CHECKING([BIND 10 libraries])
+AC_TRY_LINK([
+#include <dns/rrtype.h>
+],[
+isc::dns::RRType rrtype(1);
+],
+[ AC_MSG_RESULT(yes)],
+[ AC_MSG_RESULT(no)
+  AC_MSG_ERROR(unable to find required BIND 10 libraries)])
+
+CPPFLAGS="$CPPFLAGS_SAVED"
+LDFLAGS="$LDFLAGS_SAVES"
+LIBS="$LIBS_SAVES"
+
+AC_SUBST(BIND10_LDFLAGS)
+AC_SUBST(BIND10_LDADD)
+
+# Check for availability of (optional) gootletest.
 AC_ARG_WITH(gtest,
   AC_HELP_STRING([--with-gtest=PATH],
   [specify a path to gtest header files (PATH/include) and library (PATH/lib)]),

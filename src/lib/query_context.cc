@@ -50,4 +50,9 @@ QueryContext::start(qid_t qid) {
                      impl_->query_renderer_.getLength()));
 }
 
+QueryContext*
+QueryContextCreator::create() {
+    return (new QueryContext(repository_));
+}
+
 } // end of QueryPerf

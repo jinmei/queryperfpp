@@ -12,17 +12,35 @@
 // OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 // PERFORMANCE OF THIS SOFTWARE.
 
+#include <query_repository.h>
+#include <query_context.h>
 #include <dispatcher.h>
+
+#include <test_message_manager.h>
 
 #include <gtest/gtest.h>
 
+#include <sstream>
+
+using namespace std;
 using namespace Queryperf;
+using namespace Queryperf::unittest;
 
 namespace {
 class DispatcherTest : public ::testing::Test {
 protected:
-    DispatcherTest() {}
+    DispatcherTest() : ss("example.com. SOA\n"
+                          "www.example.com. A"),
+                       repo(ss), ctx_creator(repo),
+                       disp(msg_mgr, ctx_creator)
+    {}
 
+private:
+    stringstream ss;
+    QueryRepository repo;
+    QueryContextCreator ctx_creator;
+protected:
+    TestMessageManager msg_mgr;
     Dispatcher disp;
 };
 

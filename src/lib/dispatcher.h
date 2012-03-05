@@ -15,18 +15,28 @@
 #ifndef __QUERYPERF_DISPATCHER_H
 #define __QUERYPERF_DISPATCHER_H 1
 
-#include <query_context.h>
+#include <libqueryperfpp_fwd.h>
 
 #include <boost/noncopyable.hpp>
+
+#include <sys/types.h>
 
 namespace Queryperf {
 
 class Dispatcher : private boost::noncopyable {
 public:
+    // Default parameters: derived from the original queryperf.
+    //
+    // Window size: maximum number of queries outstanding.
+    static const size_t DEFAULT_WINDOW = 20;
+
     // parameters eventually taken:
     //   window size, test duration, server adress, server port
     //   socket buffer size
-    Dispatcher();
+    ///
+    /// \param msg_mgr A message manager object that handles I/O and timeout
+    /// events.
+    Dispatcher(MessageManager& msg_mgr, QueryContextCreator& ctx_creator);
     ~Dispatcher();
 
     void run();

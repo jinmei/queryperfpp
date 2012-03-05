@@ -12,37 +12,24 @@
 // OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 // PERFORMANCE OF THIS SOFTWARE.
 
-#include <dispatcher.h>
+#ifndef __QUERYPERF_FWD_H
+#define __QUERYPERF_FWD_H 1
 
-#include <list>
-
-using namespace std;
-
-namespace {
-struct QueryEvent {
-};
-} // unnamed namespace
+// Forward declarations
 
 namespace Queryperf {
 
-struct Dispatcher::DispatcherImpl {
-    DispatcherImpl() {}
-
-    //list<> outstanding_;
-    //list<> available_;
-};
-
-Dispatcher::Dispatcher(MessageManager&, QueryContextCreator&) :
-    impl_(new DispatcherImpl)
-{
-}
-
-Dispatcher::~Dispatcher() {
-    delete impl_;
-}
-
-void
-Dispatcher::run() {
-}
+class QueryRepository;
+class QueryRepository;
+class QueryContext;
+class QueryContextCreator;
+class MessageSocket;
+class MessageManager;
 
 } // end of QueryPerf
+
+#endif // __QUERYPERF_FWD_H 
+
+// Local Variables:
+// mode: c++
+// End:

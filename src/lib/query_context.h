@@ -15,7 +15,7 @@
 #ifndef __QUERYPERF_QUERY_CONTEXT_H
 #define __QUERYPERF_QUERY_CONTEXT_H 1
 
-#include <query_repository.h>
+#include <libqueryperfpp_fwd.h>
 
 #include <boost/noncopyable.hpp>
 
@@ -42,6 +42,17 @@ public:
 private:
     struct QueryContextImpl;
     QueryContextImpl* impl_;
+};
+
+class QueryContextCreator {
+public:
+    QueryContextCreator(QueryRepository& repository) : repository_(repository)
+    {}
+
+    QueryContext* create();
+
+private:
+    QueryRepository& repository_;
 };
 
 } // end of QueryPerf

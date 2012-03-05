@@ -1,0 +1,5 @@
+Major expected features
+- multi thread support for higher performance
+- TCP fallback
+- moduler and extendability
+- query preloading for improve performance with smaller input data

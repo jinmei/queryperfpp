@@ -12,42 +12,41 @@
 // OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 // PERFORMANCE OF THIS SOFTWARE.
 
-#ifndef __QUERYPERF_QUERY_REPOSITORY_H
-#define __QUERYPERF_QUERY_REPOSITORY_H 1
+#ifndef __QUERYPERF_QUERY_CONTEXT_H
+#define __QUERYPERF_QUERY_CONTEXT_H 1
 
-#include <dns/message.h>
+#include <query_repository.h>
 
 #include <boost/noncopyable.hpp>
 
-#include <istream>
-#include <string>
-#include <stdexcept>
-
 namespace Queryperf {
 
-class QueryRepositoryError : public std::runtime_error {
+class QueryContext : private boost::noncopyable {
 public:
-    QueryRepositoryError(const std::string& what_arg) :
-        std::runtime_error(what_arg)
-    {}
-};
+    /// \brief A straightforward tuple of pointer to opaque data and its length
+    ///
+    /// This structure intends to store DNS queries in wire format.
+    struct WireData {
+        WireData(const void* data_param, size_t len_param) :
+            data(data_param), len(len_param)
+        {}
+        const void* data;
+        const size_t len;
+    };
 
-class QueryRepository : private boost::noncopyable {
-public:
-    explicit QueryRepository(std::istream& input);
-    explicit QueryRepository(const std::string& input_file);
-    ~QueryRepository();
+    QueryContext(QueryRepository& repository);
+    ~QueryContext();
 
-    void getNextQuery(isc::dns::Message& message);
+    WireData start(isc::dns::qid_t qid);
 
 private:
-    struct QueryRepositoryImpl;
-    QueryRepositoryImpl* impl_;
+    struct QueryContextImpl;
+    QueryContextImpl* impl_;
 };
 
 } // end of QueryPerf
 
-#endif // __QUERYPERF_QUERY_REPOSITORY_H
+#endif // __QUERYPERF_QUERY_CONTEXT_H 
 
 // Local Variables:
 // mode: c++

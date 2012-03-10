@@ -64,6 +64,9 @@ public:
 
     /// \brief Start the main event loop.
     virtual void run() = 0;
+
+    /// \brief Stop the event loop.
+    virtual void stop() = 0;
 };
 
 } // end of QueryPerf

@@ -50,11 +50,15 @@ class TestMessageManager : public MessageManager, private boost::noncopyable {
 public:
     typedef boost::function<void()> Handler;
 
+    TestMessageManager() : running_(false) {}
+
     virtual MessageSocket* createMessageSocket(
         int proto, const std::string& address, uint16_t port,
         MessageSocket::Callback callback);
 
     virtual void run();
+
+    virtual void stop();
 
     void setRunHandler(Handler handler) { run_handler_ = handler; }
 
@@ -64,6 +68,8 @@ public:
 private:
     // run() Callback.  It delegates the control to the corresponding test.
     Handler run_handler_;
+
+    bool running_;
 };
 
 } // end of unittest

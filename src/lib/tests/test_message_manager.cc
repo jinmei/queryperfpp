@@ -61,8 +61,13 @@ TestMessageManager::createMessageSocket(int, const std::string&, uint16_t,
 
 void
 TestMessageManager::run() {
+    if (running_) {
+        throw runtime_error("Test message manager: duplicate run");
+    }
+    running_ = true;
+
     size_t count = 0;
-    while (true) {
+    while (running_) {
         ASSERT_GT(MAX_RUN_LOOP, count++);
         if (run_handler_) {
             run_handler_();
@@ -70,6 +75,14 @@ TestMessageManager::run() {
             break;
         }
     }
+}
+
+void
+TestMessageManager::stop() {
+    if (!running_) {
+        throw runtime_error("Test message manager: stopping before start");
+    }
+    running_ = false;
 }
 
 } // end of unittest

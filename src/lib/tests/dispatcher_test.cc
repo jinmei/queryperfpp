@@ -72,8 +72,8 @@ initialQueryCheck(DispatcherTest* test) {
                           RRType::A());
     }
 
-    // Reset the handler
-    test->msg_mgr.setRunHandler(NULL);
+    // Stop the manager
+    test->msg_mgr.stop();
 }
 
 TEST_F(DispatcherTest, initialQueries) {

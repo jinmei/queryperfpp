@@ -12,11 +12,21 @@
 // OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 // PERFORMANCE OF THIS SOFTWARE.
 
+#include <query_context.h>
 #include <dispatcher.h>
+#include <message_manager.h>
 
+#include <dns/message.h>
+
+#include <boost/bind.hpp>
+
+#include <cassert>
 #include <list>
 
+#include <netinet/in.h>
+
 using namespace std;
+using namespace isc::dns;
 
 namespace {
 struct QueryEvent {
@@ -26,14 +36,46 @@ struct QueryEvent {
 namespace Queryperf {
 
 struct Dispatcher::DispatcherImpl {
-    DispatcherImpl() {}
+    DispatcherImpl(MessageManager& msg_mgr,
+                   QueryContextCreator& ctx_creator) :
+        window_(DEFAULT_WINDOW), qid_(0), udp_socket_(NULL),
+        msg_mgr_(msg_mgr), ctx_creator_(ctx_creator)
+    {}
 
+    void run();
+
+    // Callback from the message manager called when a response to a query is
+    // delivered.
+    void responseCallback(const MessageSocket::Event&) {
+        // empty for now
+    }
+
+    size_t window_;
+    qid_t qid_;
+    MessageSocket* udp_socket_;
     //list<> outstanding_;
     //list<> available_;
+    MessageManager& msg_mgr_;
+    QueryContextCreator& ctx_creator_;
 };
 
-Dispatcher::Dispatcher(MessageManager&, QueryContextCreator&) :
-    impl_(new DispatcherImpl)
+void
+Dispatcher::DispatcherImpl::run() {
+    udp_socket_ =
+        msg_mgr_.createMessageSocket(IPPROTO_UDP, "::1", 5300,
+                                     boost::bind(
+                                         &DispatcherImpl::responseCallback,
+                                         this, _1));
+    for (size_t i = 0; i < window_; ++i) {
+        QueryContext* qctx = ctx_creator_.create();
+        QueryContext::WireData qry_data = qctx->start(qid_++);
+        udp_socket_->send(qry_data.data, qry_data.len);
+    }
+}
+
+Dispatcher::Dispatcher(MessageManager& msg_mgr,
+                       QueryContextCreator& ctx_creator) :
+    impl_(new DispatcherImpl(msg_mgr, ctx_creator))
 {
 }
 
@@ -43,6 +85,8 @@ Dispatcher::~Dispatcher() {
 
 void
 Dispatcher::run() {
+    assert(impl_->udp_socket_ == NULL);
+    impl_->run();
 }
 
 } // end of QueryPerf

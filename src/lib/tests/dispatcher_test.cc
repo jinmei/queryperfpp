@@ -39,6 +39,7 @@ private:
     stringstream ss;
     QueryRepository repo;
     QueryContextCreator ctx_creator;
+
 protected:
     TestMessageManager msg_mgr;
     Dispatcher disp;
@@ -46,5 +47,7 @@ protected:
 
 TEST_F(DispatcherTest, initialRun) {
     disp.run();
+    ASSERT_TRUE(msg_mgr.socket_);
+    EXPECT_EQ(20, msg_mgr.socket_->queries_.size());
 }
 } // unnamed namespace

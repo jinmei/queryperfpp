@@ -17,7 +17,11 @@
 
 #include <libqueryperfpp_fwd.h>
 
+#include <dns/message.h>
+
 #include <boost/noncopyable.hpp>
+
+#include <sys/types.h>
 
 namespace Queryperf {
 

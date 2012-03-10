@@ -66,11 +66,17 @@ Dispatcher::DispatcherImpl::run() {
                                      boost::bind(
                                          &DispatcherImpl::responseCallback,
                                          this, _1));
+
+    // Create pooled query contexts and dispatch initial queries.
     for (size_t i = 0; i < window_; ++i) {
-        QueryContext* qctx = ctx_creator_.create();
-        QueryContext::WireData qry_data = qctx->start(qid_++);
+        // Note: this leaks right now
+        QueryContext* query_ctx = ctx_creator_.create();
+        QueryContext::WireData qry_data = query_ctx->start(qid_++);
         udp_socket_->send(qry_data.data, qry_data.len);
     }
+
+    // Enter the event loop.
+    msg_mgr_.run();
 }
 
 Dispatcher::Dispatcher(MessageManager& msg_mgr,

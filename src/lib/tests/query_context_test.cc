@@ -12,6 +12,8 @@
 // OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 // PERFORMANCE OF THIS SOFTWARE.
 
+#include <common_test.h>
+
 #include <util/buffer.h>
 
 #include <dns/name.h>
@@ -51,32 +53,8 @@ void
 messageCheck(const QueryContext::WireData& msg_data, qid_t expected_qid,
              const Name& expected_qname, RRType expected_qtype)
 {
-    EXPECT_NE(0, msg_data.len);
-    ASSERT_NE(static_cast<const void*>(NULL), msg_data.data);
-
-    Message msg(Message::PARSE);
-    InputBuffer buffer(msg_data.data, msg_data.len);
-    msg.fromWire(buffer);
-
-    EXPECT_EQ(Opcode::QUERY(), msg.getOpcode());
-    EXPECT_EQ(Rcode::NOERROR(), msg.getRcode());
-    EXPECT_EQ(expected_qid, msg.getQid());
-    EXPECT_FALSE(msg.getHeaderFlag(Message::HEADERFLAG_QR));
-    EXPECT_FALSE(msg.getHeaderFlag(Message::HEADERFLAG_AA));
-    EXPECT_FALSE(msg.getHeaderFlag(Message::HEADERFLAG_TC));
-    EXPECT_TRUE(msg.getHeaderFlag(Message::HEADERFLAG_RD));
-    EXPECT_FALSE(msg.getHeaderFlag(Message::HEADERFLAG_RA));
-    EXPECT_FALSE(msg.getHeaderFlag(Message::HEADERFLAG_AD));
-    EXPECT_FALSE(msg.getHeaderFlag(Message::HEADERFLAG_CD));
-    EXPECT_EQ(1, msg.getRRCount(Message::SECTION_QUESTION));
-    EXPECT_EQ(0, msg.getRRCount(Message::SECTION_ANSWER));
-    EXPECT_EQ(0, msg.getRRCount(Message::SECTION_AUTHORITY));
-    EXPECT_EQ(0, msg.getRRCount(Message::SECTION_ADDITIONAL));
-    QuestionIterator qit = msg.beginQuestion();
-    ASSERT_FALSE(qit == msg.endQuestion());
-    EXPECT_EQ(expected_qname, (*qit)->getName());
-    EXPECT_EQ(expected_qtype, (*qit)->getType());
-    EXPECT_EQ(RRClass::IN(), (*qit)->getClass());
+    unittest::queryMessageCheck(msg_data.data, msg_data.len, expected_qid,
+                                expected_qname, expected_qtype);
 }
 
 TEST_F(QueryContextTest, start) {

@@ -27,7 +27,10 @@ namespace Queryperf {
 class MessageSocket : private boost::noncopyable {
 public:
     struct Event {
-        const void* data;
+        Event(const void* data_param, size_t datalen_param) :
+            data(data_param), datalen(datalen_param)
+        {}
+        const void* const data;
         const size_t datalen;
     };
     typedef boost::function<void(Event)> Callback;
@@ -58,6 +61,9 @@ public:
     virtual MessageSocket* createMessageSocket(
         int proto, const std::string& address, uint16_t port,
         MessageSocket::Callback callback) = 0;
+
+    /// \brief Start the main event loop.
+    virtual void run() = 0;
 };
 
 } // end of QueryPerf

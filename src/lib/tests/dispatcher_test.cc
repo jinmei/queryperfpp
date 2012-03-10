@@ -12,17 +12,26 @@
 // OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 // PERFORMANCE OF THIS SOFTWARE.
 
+#include <test_message_manager.h>
+#include <common_test.h>
+
 #include <query_repository.h>
 #include <query_context.h>
 #include <dispatcher.h>
+#include <common_test.h>
 
-#include <test_message_manager.h>
+#include <dns/message.h>
+#include <dns/name.h>
+#include <dns/rrtype.h>
 
 #include <gtest/gtest.h>
+
+#include <boost/bind.hpp>
 
 #include <sstream>
 
 using namespace std;
+using namespace isc::dns;
 using namespace Queryperf;
 using namespace Queryperf::unittest;
 
@@ -41,13 +50,34 @@ private:
     QueryContextCreator ctx_creator;
 
 protected:
-    TestMessageManager msg_mgr;
     Dispatcher disp;
+
+public:
+    // refererenced from callbacks
+    TestMessageManager msg_mgr;
 };
 
-TEST_F(DispatcherTest, initialRun) {
+void
+initialQueryCheck(DispatcherTest* test) {
+    // Examine the queries recorded in the manager and check if these are
+    // the expected ones.
+
+    ASSERT_TRUE(test->msg_mgr.socket_);
+    EXPECT_EQ(20, test->msg_mgr.socket_->queries_.size());
+    for (size_t i = 0; i < test->msg_mgr.socket_->queries_.size(); ++i) {
+        queryMessageCheck(*test->msg_mgr.socket_->queries_[i], i,
+                          (i % 2) == 0 ? Name("example.com") :
+                          Name("www.example.com"),
+                          (i % 2) == 0 ? RRType::SOA() :
+                          RRType::A());
+    }
+
+    // Reset the handler
+    test->msg_mgr.setRunHandler(NULL);
+}
+
+TEST_F(DispatcherTest, initialQueries) {
+    msg_mgr.setRunHandler(boost::bind(initialQueryCheck, this));
     disp.run();
-    ASSERT_TRUE(msg_mgr.socket_);
-    EXPECT_EQ(20, msg_mgr.socket_->queries_.size());
 }
 } // unnamed namespace

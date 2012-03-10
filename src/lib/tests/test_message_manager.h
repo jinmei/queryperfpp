@@ -32,8 +32,8 @@
 namespace Queryperf {
 namespace unittest {
 
-// In this module we expose member variables to the tests for convenience.
-// Data encapsulation isn't much important here.
+// In this module we expose most of the member variables to the tests for
+// convenience.  Data encapsulation isn't much important here.
 
 class TestMessageManager;
 
@@ -48,12 +48,22 @@ public:
 
 class TestMessageManager : public MessageManager, private boost::noncopyable {
 public:
+    typedef boost::function<void()> Handler;
+
     virtual MessageSocket* createMessageSocket(
         int proto, const std::string& address, uint16_t port,
         MessageSocket::Callback callback);
 
+    virtual void run();
+
+    void setRunHandler(Handler handler) { run_handler_ = handler; }
+
     // Use a fixed internal socket object.
     boost::scoped_ptr<TestMessageSocket> socket_;
+
+private:
+    // run() Callback.  It delegates the control to the corresponding test.
+    Handler run_handler_;
 };
 
 } // end of unittest

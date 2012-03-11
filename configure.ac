@@ -206,6 +206,24 @@ AC_CHECK_HEADERS([boost/shared_ptr.hpp boost/foreach.hpp boost/interprocess/sync
 CPPFLAGS="$CPPFLAGS_SAVES"
 AC_SUBST(BOOST_INCLUDES)
 
+#
+# Configure ASIO header path
+#
+# If explicitly specified, use it.
+AC_ARG_WITH([asio-include],
+  AC_HELP_STRING([--with-asio-include=PATH],
+    [specify exact directory for ASIO headers]),
+    [asio_include_path="$withval"])
+CPPFLAGS_SAVES="$CPPFLAGS"
+if test "${asio_include_path}" ; then
+	ASIO_INCLUDES="-I${asio_include_path}"
+	CPPFLAGS="$CPPFLAGS $ASIO_INCLUDES"
+fi
+AC_CHECK_HEADERS([asio.hpp],,
+  AC_MSG_ERROR([Missing required header files.]))
+CPPFLAGS="$CPPFLAGS_SAVES"
+AC_SUBST(ASIO_INCLUDES)
+
 # Checks for header files.
 
 # Checks for typedefs, structures, and compiler characteristics.

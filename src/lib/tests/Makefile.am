@@ -7,6 +7,7 @@ run_unittests_SOURCES = run_unittests.cc
 run_unittests_SOURCES += query_repository_test.cc
 run_unittests_SOURCES += query_context_test.cc
 run_unittests_SOURCES += dispatcher_test.cc
+run_unittests_SOURCES += asio_message_manager_test.cc
 run_unittests_SOURCES += test_message_manager.h test_message_manager.cc
 run_unittests_SOURCES += common_test.h common_test.cc
 

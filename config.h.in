@@ -1,5 +1,8 @@
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 
+/* Define to 1 if you have the <asio.hpp> header file. */
+#undef HAVE_ASIO_HPP
+
 /* Define to 1 if you have the <boost/bind.hpp> header file. */
 #undef HAVE_BOOST_BIND_HPP
 

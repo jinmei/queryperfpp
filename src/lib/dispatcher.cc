@@ -21,6 +21,7 @@
 #include <dns/message.h>
 
 #include <boost/bind.hpp>
+#include <boost/foreach.hpp>
 
 #include <algorithm>
 #include <cassert>
@@ -84,15 +85,18 @@ Dispatcher::DispatcherImpl::run() {
                                      boost::bind(
                                          &DispatcherImpl::responseCallback,
                                          this, _1));
-
-    // Create pooled query contexts and dispatch initial queries.
+    // Create a pool of query contexts.  Setting QID to 0 for now.
     for (size_t i = 0; i < window_; ++i) {
-        // Note: this leaks right now
-        QueryEvent qev(qid_, ctx_creator_.create());
-        QueryContext::WireData qry_data = qev.ctx_->start(qid_++);
-        udp_socket_->send(qry_data.data, qry_data.len);
+        QueryEvent qev(0, ctx_creator_.create());
         outstanding_.push_back(qev);
         qev.reset();
+    }
+    // Dispatch initial queries at once.
+    BOOST_FOREACH(QueryEvent& qev, outstanding_) {
+        QueryContext::WireData qry_data = qev.ctx_->start(qid_);
+        qev.qid_ = qid_;
+        udp_socket_->send(qry_data.data, qry_data.len);
+        qid_++;
     }
 
     // Enter the event loop.
@@ -110,11 +114,13 @@ void
 Dispatcher::DispatcherImpl::responseCallback(
     const MessageSocket::Event& sockev)
 {
+    // Parse the header of the response
     InputBuffer buffer(sockev.data, sockev.datalen);
     response_.clear(Message::PARSE);
     response_.parseHeader(buffer);
     // TODO: catch exception due to bogus response
 
+    // Identify the matching query from the outstanding queue.
     const list<QueryEvent>::iterator qev_it =
         find_if(outstanding_.begin(), outstanding_.end(),
                 boost::bind(matchResponse, _1, response_.getQid()));

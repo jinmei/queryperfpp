@@ -21,6 +21,8 @@
 #include <dns/message.h>
 
 #include <boost/bind.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/scoped_ptr.hpp>
 #include <boost/foreach.hpp>
 
 #include <algorithm>
@@ -33,6 +35,8 @@ using namespace std;
 using namespace isc::util;
 using namespace isc::dns;
 using namespace Queryperf;
+using boost::scoped_ptr;
+using boost::posix_time::seconds;
 
 namespace {
 struct QueryEvent {
@@ -58,8 +62,9 @@ namespace Queryperf {
 struct Dispatcher::DispatcherImpl {
     DispatcherImpl(MessageManager& msg_mgr,
                    QueryContextCreator& ctx_creator) :
-        window_(DEFAULT_WINDOW), qid_(0), response_(Message::PARSE),
-        udp_socket_(NULL), msg_mgr_(msg_mgr), ctx_creator_(ctx_creator)
+        keep_sending_(true), window_(DEFAULT_WINDOW), qid_(0),
+        response_(Message::PARSE), udp_socket_(NULL), msg_mgr_(msg_mgr),
+        ctx_creator_(ctx_creator)
     {}
 
     void run();
@@ -68,10 +73,18 @@ struct Dispatcher::DispatcherImpl {
     // delivered.
     void responseCallback(const MessageSocket::Event& sockev);
 
+    // Callback from the message manager on expiration of the session timer.
+    // Stop sending more queries; only wait for outstanding ones.
+    void sessionTimerCallback() {
+        keep_sending_ = false;
+    }
+
+    bool keep_sending_; // whether to send next query on getting a response
     size_t window_;
     qid_t qid_;
     Message response_;          // placeholder for response messages
     MessageSocket* udp_socket_;
+    scoped_ptr<MessageTimer> session_timer_;
     list<QueryEvent> outstanding_;
     //list<> available_;
     MessageManager& msg_mgr_;
@@ -80,11 +93,20 @@ struct Dispatcher::DispatcherImpl {
 
 void
 Dispatcher::DispatcherImpl::run() {
+    // Allocate resources used throughout the test session:
+    // common UDP socket and the whole session timer.
     udp_socket_ =
         msg_mgr_.createMessageSocket(IPPROTO_UDP, "::1", 5300,
                                      boost::bind(
                                          &DispatcherImpl::responseCallback,
                                          this, _1));
+    session_timer_.reset(msg_mgr_.createMessageTimer(
+                             boost::bind(&DispatcherImpl::sessionTimerCallback,
+                                         this)));
+
+    // Start the session timer.
+    session_timer_->start(seconds(DEFAULT_DURATION));
+
     // Create a pool of query contexts.  Setting QID to 0 for now.
     for (size_t i = 0; i < window_; ++i) {
         QueryEvent qev(0, ctx_creator_.create());
@@ -96,7 +118,7 @@ Dispatcher::DispatcherImpl::run() {
         QueryContext::WireData qry_data = qev.ctx_->start(qid_);
         qev.qid_ = qid_;
         udp_socket_->send(qry_data.data, qry_data.len);
-        qid_++;
+        ++qid_;
     }
 
     // Enter the event loop.
@@ -127,14 +149,21 @@ Dispatcher::DispatcherImpl::responseCallback(
     if (qev_it != outstanding_.end()) {
         // TODO: let the context check the response further
 
-        // Create a new query and dispatch it.
-        QueryContext::WireData qry_data = qev_it->ctx_->start(qid_);
-        qev_it->qid_ = qid_;
-        udp_socket_->send(qry_data.data, qry_data.len);
-        qid_++;
+        // If necessary, create a new query and dispatch it.
+        if (keep_sending_) {
+            QueryContext::WireData qry_data = qev_it->ctx_->start(qid_);
+            qev_it->qid_ = qid_;
+            udp_socket_->send(qry_data.data, qry_data.len);
+            ++qid_;
 
-        // Move this context to the end of the queue.
-        outstanding_.splice(qev_it, outstanding_, outstanding_.end());
+            // Move this context to the end of the queue.
+            outstanding_.splice(qev_it, outstanding_, outstanding_.end());
+        } else {
+            outstanding_.erase(qev_it);
+            if (outstanding_.empty()) {
+                msg_mgr_.stop();
+            }
+        }
     } else {
         // TODO: record the mismatched resonse
     }

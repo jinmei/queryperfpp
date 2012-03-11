@@ -20,7 +20,9 @@
 #include <gtest/gtest.h>
 
 #include <boost/shared_ptr.hpp>
+#include <boost/date_time/posix_time/posix_time_types.hpp>
 
+#include <memory>
 #include <stdexcept>
 
 using namespace std;
@@ -45,6 +47,12 @@ TestMessageSocket::send(const void* data, size_t datalen) {
     queries_.push_back(query_msg);
 }
 
+void
+TestMessageTimer::start(const boost::posix_time::time_duration& duration) {
+    started_ = true;
+    duration_seconds_ = duration.seconds();
+}
+
 MessageSocket*
 TestMessageManager::createMessageSocket(int, const std::string&, uint16_t,
                                         MessageSocket::Callback callback)
@@ -54,6 +62,13 @@ TestMessageManager::createMessageSocket(int, const std::string&, uint16_t,
     }
     socket_.reset(new TestMessageSocket(callback));
     return (socket_.get());
+}
+
+MessageTimer*
+TestMessageManager::createMessageTimer(MessageTimer::Callback callback) {
+    auto_ptr<TestMessageTimer> p(new TestMessageTimer(callback));
+    timers_.push_back(p.get());
+    return (p.release()); // give the ownership
 }
 
 void

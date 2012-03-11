@@ -23,6 +23,7 @@
 #include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/scoped_ptr.hpp>
+#include <boost/date_time/posix_time/posix_time_types.hpp>
 
 #include <string>
 #include <vector>
@@ -46,6 +47,19 @@ public:
     Callback callback_;
 };
 
+class TestMessageTimer : public MessageTimer, private boost::noncopyable {
+public:
+    TestMessageTimer(Callback callback) :
+        callback_(callback), started_(false), duration_seconds_(0)
+    {}
+
+    virtual void start(const boost::posix_time::time_duration& duration);
+
+    Callback callback_;
+    bool started_;
+    long duration_seconds_;
+};
+
 class TestMessageManager : public MessageManager, private boost::noncopyable {
 public:
     typedef boost::function<void()> Handler;
@@ -56,6 +70,8 @@ public:
         int proto, const std::string& address, uint16_t port,
         MessageSocket::Callback callback);
 
+    virtual MessageTimer* createMessageTimer(MessageTimer::Callback callback);
+
     virtual void run();
 
     virtual void stop();
@@ -64,6 +80,9 @@ public:
 
     // Use a fixed internal socket object.
     boost::scoped_ptr<TestMessageSocket> socket_;
+
+    // Timers created in this manager.
+    std::vector<TestMessageTimer*> timers_;
 
 private:
     // run() Callback.  It delegates the control to the corresponding test.

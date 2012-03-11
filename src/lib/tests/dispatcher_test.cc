@@ -99,7 +99,7 @@ respondToQuery(TestMessageManager* mgr, size_t qid) {
     // Continue this until we respond to all initial queries and the first
     // query in the second round.
     if (qid < 20) {
-        mgr->setRunHandler(boost::bind(respondToQuery,mgr, qid + 1));
+        mgr->setRunHandler(boost::bind(respondToQuery, mgr, qid + 1));
     } else {
         mgr->stop();
     }
@@ -142,6 +142,48 @@ TEST_F(DispatcherTest, queryMismatch) {
     // The bad response should be ignored, and the queue size should be the
     // same.
     EXPECT_EQ(20, msg_mgr.socket_->queries_.size());
+}
+
+void
+respondToQueryForDuration(TestMessageManager* mgr, size_t qid) {
+    // If we reach the "duration" after the initial queries, we have responded
+    // to all queries; the dispatcher should stop the manager.
+    if (qid == mgr->timers_[0]->duration_seconds_ + 20) {
+        return;
+    }
+
+    // Simplest of query responder: always return a simple response
+    Message& query = *mgr->socket_->queries_.at(qid);
+    query.makeResponse();
+    MessageRenderer renderer;
+    query.toWire(renderer);
+    mgr->socket_->callback_(MessageSocket::Event(renderer.getData(),
+                                                 renderer.getLength()));
+    ASSERT_FALSE(mgr->timers_.empty());
+    if (++qid == mgr->timers_[0]->duration_seconds_) {
+        // Assume the session duration has expired.  Do callback, then no more
+        // query should come.
+        mgr->timers_[0]->callback_();
+    }
+    mgr->setRunHandler(boost::bind(respondToQueryForDuration, mgr, qid));
+}
+
+TEST_F(DispatcherTest, sessionTimer) {
+    msg_mgr.setRunHandler(boost::bind(respondToQueryForDuration, &msg_mgr,
+                                      0));
+    disp.run();
+
+    // Check if the session timer has started and its duration is correct.
+    // The first timer in the timers_ queue should be the session timer.
+    ASSERT_FALSE(msg_mgr.timers_.empty());
+    EXPECT_TRUE(msg_mgr.timers_[0]->started_);
+    EXPECT_EQ(30, msg_mgr.timers_[0]->duration_seconds_);
+
+    // There should have been int(duration) + #initial queries = 50, and the
+    // last one should have been responded.
+    EXPECT_EQ(50, msg_mgr.socket_->queries_.size());
+    EXPECT_TRUE(msg_mgr.socket_->queries_.back()->getHeaderFlag(
+                    Message::HEADERFLAG_QR));
 }
 
 } // unnamed namespace

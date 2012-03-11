@@ -17,6 +17,7 @@
 
 #include <boost/noncopyable.hpp>
 #include <boost/function.hpp>
+#include <boost/date_time/posix_time/posix_time_types.hpp>
 
 #include <string>
 
@@ -44,6 +45,19 @@ public:
     virtual void send(const void* data, size_t datalen) = 0;
 };
 
+/// \brief Timers that work with a \c MessageManager.
+class MessageTimer : private boost::noncopyable {
+public:
+    typedef boost::function<void()> Callback;
+
+protected:
+    MessageTimer() {}
+
+public:
+    virtual ~MessageTimer() {}
+    virtual void start(const boost::posix_time::time_duration& duration) = 0;
+};
+
 class MessageManager : private boost::noncopyable {
 protected:
     MessageManager() {}
@@ -61,6 +75,10 @@ public:
     virtual MessageSocket* createMessageSocket(
         int proto, const std::string& address, uint16_t port,
         MessageSocket::Callback callback) = 0;
+
+    /// \brief Create a timer object.
+    virtual MessageTimer* createMessageTimer(
+        MessageTimer::Callback callback) = 0;
 
     /// \brief Start the main event loop.
     virtual void run() = 0;

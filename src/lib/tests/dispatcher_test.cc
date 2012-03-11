@@ -120,4 +120,28 @@ TEST_F(DispatcherTest, nextQuery) {
                           RRType::A());
     }
 }
+
+void
+sendBadResponse(TestMessageManager* mgr) {
+    // Respond to the specified position of query
+    Message& query = *mgr->socket_->queries_.at(0);
+    query.makeResponse();
+    query.setQid(65535);        // set to incorrect QID
+    MessageRenderer renderer;
+    query.toWire(renderer);
+    mgr->socket_->callback_(MessageSocket::Event(renderer.getData(),
+                                                 renderer.getLength()));
+    mgr->stop();
+}
+
+TEST_F(DispatcherTest, queryMismatch) {
+    // Will respond to the first query with a mismatched QID
+    msg_mgr.setRunHandler(boost::bind(sendBadResponse, &msg_mgr));
+    disp.run();
+
+    // The bad response should be ignored, and the queue size should be the
+    // same.
+    EXPECT_EQ(20, msg_mgr.socket_->queries_.size());
+}
+
 } // unnamed namespace

@@ -43,9 +43,6 @@ TestMessageSocket::send(const void* data, size_t datalen) {
     shared_ptr<Message> query_msg(new Message(Message::PARSE));
     query_msg->fromWire(buffer);
     queries_.push_back(query_msg);
-
-    // Immediatelly respond with the query itself.
-    callback_(Event(data, datalen));
 }
 
 MessageSocket*

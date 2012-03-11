@@ -21,6 +21,7 @@
 #include <common_test.h>
 
 #include <dns/message.h>
+#include <dns/messagerenderer.h>
 #include <dns/name.h>
 #include <dns/rrtype.h>
 
@@ -79,5 +80,44 @@ initialQueryCheck(DispatcherTest* test) {
 TEST_F(DispatcherTest, initialQueries) {
     msg_mgr.setRunHandler(boost::bind(initialQueryCheck, this));
     disp.run();
+}
+
+void
+respondToQuery(TestMessageManager* mgr, size_t qid) {
+    // Respond to the specified position of query
+    Message& query = *mgr->socket_->queries_.at(qid);
+    query.makeResponse();
+    MessageRenderer renderer;
+    query.toWire(renderer);
+    mgr->socket_->callback_(MessageSocket::Event(renderer.getData(),
+                                                 renderer.getLength()));
+
+    // Another query should have been sent immediatelly, and should be
+    // recorded in the manager.
+    EXPECT_EQ(21 + qid, mgr->socket_->queries_.size());
+
+    // Continue this until we respond to all initial queries and the first
+    // query in the second round.
+    if (qid < 20) {
+        mgr->setRunHandler(boost::bind(respondToQuery,mgr, qid + 1));
+    } else {
+        mgr->stop();
+    }
+}
+
+TEST_F(DispatcherTest, nextQuery) {
+    msg_mgr.setRunHandler(boost::bind(respondToQuery, &msg_mgr, 0));
+    disp.run();
+
+    // On completion, the first 20 and an additional one query has been
+    // responded.  We'll check that the rest of the queries are expected ones.
+    EXPECT_EQ(41, msg_mgr.socket_->queries_.size());
+    for (size_t i = 21; i < msg_mgr.socket_->queries_.size(); ++i) {
+        queryMessageCheck(*msg_mgr.socket_->queries_[i], i,
+                          (i % 2) == 0 ? Name("example.com") :
+                          Name("www.example.com"),
+                          (i % 2) == 0 ? RRType::SOA() :
+                          RRType::A());
+    }
 }
 } // unnamed namespace

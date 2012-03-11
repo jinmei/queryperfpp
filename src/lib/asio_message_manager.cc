@@ -59,7 +59,8 @@ UDPMessageSocket::UDPMessageSocket(io_service& io_service,
 }
 
 void
-UDPMessageSocket::send(const void* /*data*/, size_t /*datalen*/) {
+UDPMessageSocket::send(const void* data, size_t datalen) {
+    asio_sock_.send(asio::buffer(data, datalen));
 }
 
 struct ASIOMessageManager::ASIOMessageManagerImpl {

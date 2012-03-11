@@ -166,17 +166,29 @@ private:
     vector<struct addrinfo*> addrinfo_list_;
 };
 
+// An empty call back for MessageSocket::send.  Used when we don't have
+// to test the callback behavior.
+void
+noopCallback(const MessageSocket::Event&) {
+}
+
 class ASIOMessageManagerTest : public ::testing::Test {
 protected:
-    ASIOMessageManagerTest() {}
-
-    ASIOMessageManager asio_manager;
-
-    void sendCallback(const MessageSocket::Event&) {}
+    ASIOMessageManagerTest() : sendcallback_called_(0), send_done_(0) {}
 
     // A convenient shortcut for the namespace-scope version of getSockAddr
     SockAddrInfo getSockAddr(const string& addr_str, const string& port_str) {
         return (addr_creator_.get(addr_str, port_str));
+    }
+
+    // Common callback for the message socket.
+    void sendCallback(const MessageSocket::Event& ev) {
+        ++sendcallback_called_;
+        EXPECT_EQ(sizeof(TEST_DATA), ev.datalen);
+        EXPECT_STREQ(TEST_DATA, static_cast<const char*>(ev.data));
+        if (send_done_ == sendcallback_called_) {
+            asio_manager_.stop();
+        }
     }
 
     // A helper method that creates a specified type of socket that is
@@ -210,6 +222,14 @@ protected:
         return (s);
     }
 
+    void sendCheck(int recv_fd, const string& addr, uint16_t port,
+                   MessageSocket::Callback callback);
+
+    size_t sendcallback_called_;
+    size_t send_done_;
+    ASIOMessageManager asio_manager_;
+    scoped_ptr<MessageSocket> test_sock_;
+
 private:
     SockAddrCreator addr_creator_;
 };
@@ -217,10 +237,8 @@ private:
 TEST_F(ASIOMessageManagerTest, createMessageSocketIPv6) {
     scoped_ptr<ASIOMessageSocket> sock(
         dynamic_cast<ASIOMessageSocket*>(
-            asio_manager.createMessageSocket(
-                IPPROTO_UDP, "::1", 5300,
-                boost::bind(&ASIOMessageManagerTest::sendCallback,
-                            this, _1))));
+            asio_manager_.createMessageSocket(
+                IPPROTO_UDP, "::1", 5300, noopCallback)));
     ASSERT_TRUE(sock);
     const int s =  sock->native();
     EXPECT_NE(-1, s);
@@ -238,10 +256,8 @@ TEST_F(ASIOMessageManagerTest, createMessageSocketIPv6) {
 TEST_F(ASIOMessageManagerTest, createMessageSocketIPv4) {
     scoped_ptr<ASIOMessageSocket> sock(
         dynamic_cast<ASIOMessageSocket*>(
-            asio_manager.createMessageSocket(
-                IPPROTO_UDP, "127.0.0.1", 5304,
-                boost::bind(&ASIOMessageManagerTest::sendCallback,
-                            this, _1))));
+            asio_manager_.createMessageSocket(
+                IPPROTO_UDP, "127.0.0.1", 5304, noopCallback)));
     ASSERT_TRUE(sock);
     const int s =  sock->native();
     EXPECT_NE(-1, s);
@@ -258,38 +274,36 @@ TEST_F(ASIOMessageManagerTest, createMessageSocketIPv4) {
 
 TEST_F(ASIOMessageManagerTest, createMessageSocketBadParam) {
     // TCP is not (yet) supported
-    EXPECT_THROW(asio_manager.createMessageSocket(
-                     IPPROTO_TCP, "::1", 5300,
-                     boost::bind(&ASIOMessageManagerTest::sendCallback, this,
-                                 _1)),
+    EXPECT_THROW(asio_manager_.createMessageSocket(
+                     IPPROTO_TCP, "::1", 5300, noopCallback),
                  MessageSocketError);
 
     // Bad address
-    EXPECT_THROW(asio_manager.createMessageSocket(
-                     IPPROTO_UDP, "127.0.0..1", 5300,
-                     boost::bind(&ASIOMessageManagerTest::sendCallback, this,
-                                 _1)),
+    EXPECT_THROW(asio_manager_.createMessageSocket(
+                     IPPROTO_UDP, "127.0.0..1", 5300, noopCallback),
                  MessageSocketError);
 
     // Null callback
-    EXPECT_THROW(asio_manager.createMessageSocket(IPPROTO_UDP, "127.0.0.1",
+    EXPECT_THROW(asio_manager_.createMessageSocket(IPPROTO_UDP, "127.0.0.1",
                                                   5300, NULL),
                  MessageSocketError);
 }
 
 void
-noopCallback(const MessageSocket::Event&) {}
-
-void
-sendCheck(int recv_fd, ASIOMessageManager& manager,
-          const string& addr, uint16_t port)
+ASIOMessageManagerTest::sendCheck(int recv_fd, const string& addr,
+                                  uint16_t port,
+                                  MessageSocket::Callback callback =
+                                  noopCallback)
 {
-    // Create a socket on the manager
-    scoped_ptr<MessageSocket> sock(manager.createMessageSocket(
-                                       IPPROTO_UDP, addr, port, noopCallback));
+    // Create a socket on the manager if not created
+    if (!test_sock_) {
+        test_sock_.reset(asio_manager_.createMessageSocket(
+                             IPPROTO_UDP, addr, port, callback));
+    }
 
     // Send data from the first socket, and receive on the second one.
-    sock->send(TEST_DATA, sizeof(TEST_DATA));
+    test_sock_->send(TEST_DATA, sizeof(TEST_DATA));
+    ++send_done_;
 
     char recvbuf[sizeof(TEST_DATA)];
     sockaddr_storage ss;
@@ -298,15 +312,61 @@ sendCheck(int recv_fd, ASIOMessageManager& manager,
                                           setRecvDelay(recv_fd),
                                           convertSockAddr(&ss), &sa_len));
     EXPECT_STREQ(TEST_DATA, recvbuf);
+
+    // Then echo back the received data to the sender (which may or may not be
+    // used in the test)
+    EXPECT_EQ(sizeof(TEST_DATA),
+              sendto(recv_fd, recvbuf, sizeof(recvbuf), 0,
+                     convertSockAddr(&ss), sa_len));
 }
 
 TEST_F(ASIOMessageManagerTest, send) {
     ScopedSocket recv_s(createSocket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP,
                                      getSockAddr("::1", "5306")));
-    sendCheck(recv_s.fd, asio_manager, "::1", 5306);
+    sendCheck(recv_s.fd, "::1", 5306);
 
+    test_sock_.reset(NULL);
     recv_s.reset(createSocket(AF_INET, SOCK_DGRAM, IPPROTO_UDP,
                               getSockAddr("127.0.0.1", "5304")));
-    sendCheck(recv_s.fd, asio_manager, "127.0.0.1", 5304);
+    sendCheck(recv_s.fd, "127.0.0.1", 5304);
+}
+
+TEST_F(ASIOMessageManagerTest, sendCallbackIPv6) {
+    ScopedSocket recv_s(createSocket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP,
+                                     getSockAddr("::1", "5306")));
+    EXPECT_EQ(0, sendcallback_called_);
+    sendCheck(recv_s.fd, "::1", 5306,
+              boost::bind(&ASIOMessageManagerTest::sendCallback, this,
+                          _1));
+    EXPECT_EQ(0, sendcallback_called_); // callback still shouldn't be called
+    asio_manager_.run();
+    EXPECT_EQ(1, sendcallback_called_);
+}
+
+TEST_F(ASIOMessageManagerTest, sendCallbackIPv4) {
+    // same test as the previous one, for IPv4.
+    ScopedSocket recv_s(createSocket(AF_INET, SOCK_DGRAM, IPPROTO_UDP,
+                                     getSockAddr("127.0.0.1", "5304")));
+    EXPECT_EQ(0, sendcallback_called_);
+    sendCheck(recv_s.fd, "127.0.0.1", 5304,
+              boost::bind(&ASIOMessageManagerTest::sendCallback, this,
+                          _1));
+    EXPECT_EQ(0, sendcallback_called_);
+    asio_manager_.run();
+    EXPECT_EQ(1, sendcallback_called_);
+}
+
+TEST_F(ASIOMessageManagerTest, multipleSends) {
+    ScopedSocket recv_s(createSocket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP,
+                                     getSockAddr("::1", "5306")));
+    EXPECT_EQ(0, sendcallback_called_);
+    sendCheck(recv_s.fd, "::1", 5306,
+              boost::bind(&ASIOMessageManagerTest::sendCallback, this,
+                          _1));
+    sendCheck(recv_s.fd, "::1", 5306,
+              boost::bind(&ASIOMessageManagerTest::sendCallback, this,
+                          _1));
+    asio_manager_.run();
+    EXPECT_EQ(2, sendcallback_called_);
 }
 } // unnamed namespace

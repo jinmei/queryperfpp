@@ -17,6 +17,7 @@
 
 #include <asio.hpp>
 
+#include <boost/bind.hpp>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 #include <boost/lexical_cast.hpp>
 
@@ -39,14 +40,20 @@ public:
 
     virtual int native() { return (asio_sock_.native()); }
 
+    // The handler for ASIO receive operations on this socket.
+    void handleRead(const asio::error_code& ec, size_t length);
+
 private:
     udp::socket asio_sock_;
+    Callback callback_;
+    bool receiving_;
+    uint8_t recvbuf_[4096];
 };
 
 UDPMessageSocket::UDPMessageSocket(io_service& io_service,
                                    const string& address,
-                                   uint16_t port, Callback /*callback*/) :
-    asio_sock_(io_service)
+                                   uint16_t port, Callback callback) :
+    asio_sock_(io_service), callback_(callback), receiving_(false)
 {
     try {
         const udp::endpoint dest(asio::ip::address::from_string(address),
@@ -60,7 +67,30 @@ UDPMessageSocket::UDPMessageSocket(io_service& io_service,
 
 void
 UDPMessageSocket::send(const void* data, size_t datalen) {
-    asio_sock_.send(asio::buffer(data, datalen));
+    asio::error_code ec;
+    asio_sock_.send(asio::buffer(data, datalen), 0, ec);
+    if (ec) {
+        throw MessageSocketError(string("Unexpected failure on socket send: ")
+                                 + ec.message());
+    }
+    if (!receiving_) {
+        asio_sock_.async_receive(asio::buffer(recvbuf_, sizeof(recvbuf_)),
+                                 boost::bind(&UDPMessageSocket::handleRead,
+                                             this, _1, _2));
+        receiving_ = true;
+    }
+}
+
+void
+UDPMessageSocket::handleRead(const asio::error_code& ec, size_t length) {
+    if (ec) {
+        throw MessageSocketError("unexpected failure on socket read: " +
+                                 ec.message());
+    }
+    callback_(Event(recvbuf_, length));
+    asio_sock_.async_receive(asio::buffer(recvbuf_, sizeof(recvbuf_)),
+                             boost::bind(&UDPMessageSocket::handleRead,
+                                         this, _1, _2));
 }
 
 struct ASIOMessageManager::ASIOMessageManagerImpl {
@@ -98,10 +128,12 @@ ASIOMessageManager::createMessageTimer(MessageTimer::Callback /*callback*/) {
 
 void
 ASIOMessageManager::run() {
+    impl_->io_service_.run();
 }
 
 void
 ASIOMessageManager::stop() {
+    impl_->io_service_.stop();
 }
 
 } // end of QueryPerf

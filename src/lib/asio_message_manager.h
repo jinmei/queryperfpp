@@ -26,13 +26,20 @@
 
 namespace Queryperf {
 
-#ifdef notyet
 class ASIOMessageSocket : public MessageSocket, private boost::noncopyable {
+protected:
+    ASIOMessageSocket() {}
 public:
-    ASIOMessageSocket(Callback callback);
-    virtual void send(const void* data, size_t datalen);
+    virtual ~ASIOMessageSocket() {}
+    virtual void send(const void* data, size_t datalen) = 0;
+
+    /// \brief Return the native socket descriptor.
+    ///
+    /// Provided for debugging purposes only.
+    virtual int native() = 0;
 };
 
+#ifdef notyet
 class ASIOMessageTimer : public MessageTimer, private boost::noncopyable {
 public:
     ASIOMessageTimer(Callback callback);

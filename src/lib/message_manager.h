@@ -20,10 +20,19 @@
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 
 #include <string>
+#include <stdexcept>
 
 #include <stdint.h>
 
 namespace Queryperf {
+
+/// \brief Exception class thrown on socket related errors.
+class MessageSocketError : public std::runtime_error {
+public:
+    MessageSocketError(const std::string& what_arg) :
+        std::runtime_error(what_arg)
+    {}
+};
 
 class MessageSocket : private boost::noncopyable {
 public:

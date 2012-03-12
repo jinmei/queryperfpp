@@ -29,7 +29,7 @@ namespace Queryperf {
 /// \brief Exception class thrown on socket related errors.
 class MessageSocketError : public std::runtime_error {
 public:
-    MessageSocketError(const std::string& what_arg) :
+    explicit MessageSocketError(const std::string& what_arg) :
         std::runtime_error(what_arg)
     {}
 };
@@ -37,7 +37,7 @@ public:
 /// \brief Exception class thrown on timer related errors.
 class MessageTimerError : public std::runtime_error {
 public:
-    MessageTimerError(const std::string& what_arg) :
+    explicit MessageTimerError(const std::string& what_arg) :
         std::runtime_error(what_arg)
     {}
 };

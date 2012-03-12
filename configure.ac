@@ -236,5 +236,7 @@ fi
 AC_CONFIG_FILES([Makefile
                  src/Makefile
                  src/lib/Makefile
-                 src/lib/tests/Makefile])
+                 src/lib/tests/Makefile
+                 src/bin/Makefile
+                 src/bin/queryperfpp/Makefile])
 AC_OUTPUT

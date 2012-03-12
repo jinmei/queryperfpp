@@ -40,6 +40,7 @@ public:
 
     virtual int native() { return (asio_sock_.native()); }
 
+private:
     // The handler for ASIO receive operations on this socket.
     void handleRead(const asio::error_code& ec, size_t length);
 
@@ -121,9 +122,48 @@ ASIOMessageManager::createMessageSocket(int proto, const string& address,
                              lexical_cast<string>(proto));
 }
 
+class ASIOMessageTimer : public MessageTimer, private boost::noncopyable {
+public:
+    ASIOMessageTimer(asio::io_service& io_service,
+                     Callback callback) :
+        asio_timer_(io_service), callback_(callback)
+    {}
+    virtual void start(const boost::posix_time::time_duration& duration);
+
+    virtual void cancel() { asio_timer_.cancel(); }
+
+private:
+    // The handler for ASIO timer expiration
+    void handleExpire(const asio::error_code& ec) {
+        if (ec == asio::error::operation_aborted) {
+            return;             // we ignore cancel event
+        } else if (ec) {
+            throw MessageTimerError(string("Unexpected error on timer: ") +
+                                    ec.message());
+        }
+        callback_();
+    }
+
+private:
+    asio::deadline_timer asio_timer_;
+    Callback callback_;
+};
+
+void
+ASIOMessageTimer::start(const boost::posix_time::time_duration& duration) {
+    asio::error_code ec;
+    asio_timer_.expires_from_now(duration, ec);
+    if (ec) {
+        throw MessageTimerError(string("Unexpected failure on setting timer: ")
+                                + ec.message());
+    }
+    asio_timer_.async_wait(boost::bind(&ASIOMessageTimer::handleExpire, this,
+                                       _1));
+}
+
 MessageTimer*
-ASIOMessageManager::createMessageTimer(MessageTimer::Callback /*callback*/) {
-    return (NULL);
+ASIOMessageManager::createMessageTimer(MessageTimer::Callback callback) {
+    return (new ASIOMessageTimer(impl_->io_service_, callback));
 }
 
 void

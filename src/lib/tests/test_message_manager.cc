@@ -53,6 +53,11 @@ TestMessageTimer::start(const boost::posix_time::time_duration& duration) {
     duration_seconds_ = duration.seconds();
 }
 
+void
+TestMessageTimer::cancel() {
+    // ignore this, do nothing
+}
+
 MessageSocket*
 TestMessageManager::createMessageSocket(int, const std::string&, uint16_t,
                                         MessageSocket::Callback callback)

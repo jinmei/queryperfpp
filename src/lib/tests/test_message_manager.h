@@ -53,6 +53,7 @@ public:
     {}
 
     virtual void start(const boost::posix_time::time_duration& duration);
+    virtual void cancel();
 
     Callback callback_;
     bool started_;

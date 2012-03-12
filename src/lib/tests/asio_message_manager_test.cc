@@ -33,6 +33,7 @@
 #include <gtest/gtest.h>
 
 #include <boost/bind.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/scoped_ptr.hpp>
 #include <boost/noncopyable.hpp>
 
@@ -50,6 +51,9 @@
 using namespace std;
 using namespace Queryperf;
 using boost::scoped_ptr;
+using namespace boost::posix_time;
+using boost::posix_time::seconds;
+using boost::posix_time::ptime;
 
 namespace {
 const char TEST_DATA[] = "queryperf test";
@@ -169,12 +173,19 @@ private:
 // An empty call back for MessageSocket::send.  Used when we don't have
 // to test the callback behavior.
 void
-noopCallback(const MessageSocket::Event&) {
+noopSocketCallback(const MessageSocket::Event&) {
+}
+
+// Same for the timer
+void
+noopTimerCallback() {
 }
 
 class ASIOMessageManagerTest : public ::testing::Test {
 protected:
-    ASIOMessageManagerTest() : sendcallback_called_(0), send_done_(0) {}
+    ASIOMessageManagerTest() : sendcallback_called_(0),
+                               timercallback_called_(0), send_done_(0)
+    {}
 
     // A convenient shortcut for the namespace-scope version of getSockAddr
     SockAddrInfo getSockAddr(const string& addr_str, const string& port_str) {
@@ -189,6 +200,11 @@ protected:
         if (send_done_ == sendcallback_called_) {
             asio_manager_.stop();
         }
+    }
+
+    // Common callback for the message socket.
+    void timerCallback() {
+        ++timercallback_called_;
     }
 
     // A helper method that creates a specified type of socket that is
@@ -226,9 +242,11 @@ protected:
                    MessageSocket::Callback callback);
 
     size_t sendcallback_called_;
+    size_t timercallback_called_;
     size_t send_done_;
     ASIOMessageManager asio_manager_;
     scoped_ptr<MessageSocket> test_sock_;
+    scoped_ptr<MessageTimer> test_timer_;
 
 private:
     SockAddrCreator addr_creator_;
@@ -238,7 +256,7 @@ TEST_F(ASIOMessageManagerTest, createMessageSocketIPv6) {
     scoped_ptr<ASIOMessageSocket> sock(
         dynamic_cast<ASIOMessageSocket*>(
             asio_manager_.createMessageSocket(
-                IPPROTO_UDP, "::1", 5300, noopCallback)));
+                IPPROTO_UDP, "::1", 5300, noopSocketCallback)));
     ASSERT_TRUE(sock);
     const int s =  sock->native();
     EXPECT_NE(-1, s);
@@ -257,7 +275,7 @@ TEST_F(ASIOMessageManagerTest, createMessageSocketIPv4) {
     scoped_ptr<ASIOMessageSocket> sock(
         dynamic_cast<ASIOMessageSocket*>(
             asio_manager_.createMessageSocket(
-                IPPROTO_UDP, "127.0.0.1", 5304, noopCallback)));
+                IPPROTO_UDP, "127.0.0.1", 5304, noopSocketCallback)));
     ASSERT_TRUE(sock);
     const int s =  sock->native();
     EXPECT_NE(-1, s);
@@ -275,12 +293,12 @@ TEST_F(ASIOMessageManagerTest, createMessageSocketIPv4) {
 TEST_F(ASIOMessageManagerTest, createMessageSocketBadParam) {
     // TCP is not (yet) supported
     EXPECT_THROW(asio_manager_.createMessageSocket(
-                     IPPROTO_TCP, "::1", 5300, noopCallback),
+                     IPPROTO_TCP, "::1", 5300, noopSocketCallback),
                  MessageSocketError);
 
     // Bad address
     EXPECT_THROW(asio_manager_.createMessageSocket(
-                     IPPROTO_UDP, "127.0.0..1", 5300, noopCallback),
+                     IPPROTO_UDP, "127.0.0..1", 5300, noopSocketCallback),
                  MessageSocketError);
 
     // Null callback
@@ -293,7 +311,7 @@ void
 ASIOMessageManagerTest::sendCheck(int recv_fd, const string& addr,
                                   uint16_t port,
                                   MessageSocket::Callback callback =
-                                  noopCallback)
+                                  noopSocketCallback)
 {
     // Create a socket on the manager if not created
     if (!test_sock_) {
@@ -368,5 +386,40 @@ TEST_F(ASIOMessageManagerTest, multipleSends) {
                           _1));
     asio_manager_.run();
     EXPECT_EQ(2, sendcallback_called_);
+}
+
+TEST_F(ASIOMessageManagerTest, createMessageTimer) {
+    test_timer_.reset(asio_manager_.createMessageTimer(noopTimerCallback));
+    EXPECT_TRUE(test_timer_);
+}
+
+// Note: this takes time
+TEST_F(ASIOMessageManagerTest, startMessageTimer) {
+    test_timer_.reset(asio_manager_.createMessageTimer(
+                          boost::bind(&ASIOMessageManagerTest::timerCallback,
+                                      this)));
+    ASSERT_TRUE(test_timer_);
+    const ptime start_tm = microsec_clock::local_time();
+    test_timer_->start(seconds(1));
+    EXPECT_EQ(0, timercallback_called_);
+    asio_manager_.run();
+    const ptime end_tm = microsec_clock::local_time();
+    EXPECT_EQ(1, timercallback_called_);
+
+    // Check the duration is in some conservative range for the specified timer
+    const long duration = (end_tm - start_tm).total_microseconds();
+    EXPECT_GE(1500000, duration);
+    EXPECT_LE(500000, duration);
+}
+
+TEST_F(ASIOMessageManagerTest, cancelMessageTimer) {
+    test_timer_.reset(asio_manager_.createMessageTimer(
+                          boost::bind(&ASIOMessageManagerTest::timerCallback,
+                                      this)));
+    ASSERT_TRUE(test_timer_);
+    test_timer_->start(seconds(1));
+    test_timer_->cancel();
+    asio_manager_.run();
+    EXPECT_EQ(0, timercallback_called_);
 }
 } // unnamed namespace

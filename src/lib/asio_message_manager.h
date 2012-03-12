@@ -39,14 +39,6 @@ public:
     virtual int native() = 0;
 };
 
-#ifdef notyet
-class ASIOMessageTimer : public MessageTimer, private boost::noncopyable {
-public:
-    ASIOMessageTimer(Callback callback);
-    virtual void start(const boost::posix_time::time_duration& duration);
-};
-#endif
-
 class ASIOMessageManager : public MessageManager, private boost::noncopyable {
 public:
     ASIOMessageManager();

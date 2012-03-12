@@ -34,6 +34,14 @@ public:
     {}
 };
 
+/// \brief Exception class thrown on timer related errors.
+class MessageTimerError : public std::runtime_error {
+public:
+    MessageTimerError(const std::string& what_arg) :
+        std::runtime_error(what_arg)
+    {}
+};
+
 class MessageSocket : private boost::noncopyable {
 public:
     struct Event {
@@ -65,6 +73,7 @@ protected:
 public:
     virtual ~MessageTimer() {}
     virtual void start(const boost::posix_time::time_duration& duration) = 0;
+    virtual void cancel() = 0;
 };
 
 class MessageManager : private boost::noncopyable {

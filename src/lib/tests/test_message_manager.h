@@ -22,7 +22,6 @@
 #include <boost/noncopyable.hpp>
 #include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
-#include <boost/scoped_ptr.hpp>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 
 #include <string>
@@ -64,7 +63,7 @@ class TestMessageManager : public MessageManager, private boost::noncopyable {
 public:
     typedef boost::function<void()> Handler;
 
-    TestMessageManager() : running_(false) {}
+    TestMessageManager() : socket_(NULL), running_(false) {}
 
     virtual MessageSocket* createMessageSocket(
         int proto, const std::string& address, uint16_t port,
@@ -79,7 +78,7 @@ public:
     void setRunHandler(Handler handler) { run_handler_ = handler; }
 
     // Use a fixed internal socket object.
-    boost::scoped_ptr<TestMessageSocket> socket_;
+    TestMessageSocket* socket_;
 
     // Timers created in this manager.
     std::vector<TestMessageTimer*> timers_;

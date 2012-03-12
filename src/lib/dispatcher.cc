@@ -83,7 +83,7 @@ struct Dispatcher::DispatcherImpl {
     size_t window_;
     qid_t qid_;
     Message response_;          // placeholder for response messages
-    MessageSocket* udp_socket_;
+    scoped_ptr<MessageSocket> udp_socket_;
     scoped_ptr<MessageTimer> session_timer_;
     list<QueryEvent> outstanding_;
     //list<> available_;
@@ -95,11 +95,10 @@ void
 Dispatcher::DispatcherImpl::run() {
     // Allocate resources used throughout the test session:
     // common UDP socket and the whole session timer.
-    udp_socket_ =
-        msg_mgr_.createMessageSocket(IPPROTO_UDP, "::1", 5300,
-                                     boost::bind(
-                                         &DispatcherImpl::responseCallback,
-                                         this, _1));
+    udp_socket_.reset(msg_mgr_.createMessageSocket(
+                          IPPROTO_UDP, "::1", 5300,
+                          boost::bind(&DispatcherImpl::responseCallback,
+                                      this, _1)));
     session_timer_.reset(msg_mgr_.createMessageTimer(
                              boost::bind(&DispatcherImpl::sessionTimerCallback,
                                          this)));

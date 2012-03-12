@@ -57,11 +57,11 @@ MessageSocket*
 TestMessageManager::createMessageSocket(int, const std::string&, uint16_t,
                                         MessageSocket::Callback callback)
 {
-    if (socket_) {
+    if (socket_ != NULL) {
         throw runtime_error("duplicate socket creation");
     }
-    socket_.reset(new TestMessageSocket(callback));
-    return (socket_.get());
+    socket_ = new TestMessageSocket(callback);
+    return (socket_);
 }
 
 MessageTimer*

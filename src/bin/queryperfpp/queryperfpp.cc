@@ -43,7 +43,11 @@ usage() {
 void*
 runQueryperf(void* arg) {
     Dispatcher* disp = static_cast<Dispatcher*>(arg);
-    disp->run();
+    try {
+        disp->run();
+    } catch (const exception& ex) {
+        cerr << "Worker thread died unexpectedly: " << ex.what() << endl;
+    }
     return (NULL);
 }
 

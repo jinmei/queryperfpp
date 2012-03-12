@@ -12,9 +12,6 @@
 // OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 // PERFORMANCE OF THIS SOFTWARE.
 
-#include <query_repository.h>
-#include <query_context.h>
-#include <asio_message_manager.h>
 #include <dispatcher.h>
 
 #include <boost/date_time/posix_time/posix_time.hpp>

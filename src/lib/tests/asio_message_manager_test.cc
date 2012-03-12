@@ -393,8 +393,8 @@ TEST_F(ASIOMessageManagerTest, createMessageTimer) {
     EXPECT_TRUE(test_timer_);
 }
 
-// Note: this takes time
-TEST_F(ASIOMessageManagerTest, startMessageTimer) {
+// Note: this test takes time, so disabled by default.
+TEST_F(ASIOMessageManagerTest, DISABLED_startMessageTimer) {
     test_timer_.reset(asio_manager_.createMessageTimer(
                           boost::bind(&ASIOMessageManagerTest::timerCallback,
                                       this)));

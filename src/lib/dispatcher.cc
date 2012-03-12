@@ -36,6 +36,7 @@ using namespace isc::util;
 using namespace isc::dns;
 using namespace Queryperf;
 using boost::scoped_ptr;
+using namespace boost::posix_time;
 using boost::posix_time::seconds;
 
 namespace {
@@ -64,7 +65,7 @@ struct Dispatcher::DispatcherImpl {
                    QueryContextCreator& ctx_creator) :
         keep_sending_(true), window_(DEFAULT_WINDOW), qid_(0),
         response_(Message::PARSE), udp_socket_(NULL), msg_mgr_(msg_mgr),
-        ctx_creator_(ctx_creator)
+        ctx_creator_(ctx_creator), queries_sent_(0), queries_completed_(0)
     {}
 
     void run();
@@ -76,6 +77,7 @@ struct Dispatcher::DispatcherImpl {
     // Callback from the message manager on expiration of the session timer.
     // Stop sending more queries; only wait for outstanding ones.
     void sessionTimerCallback() {
+        end_time_ = microsec_clock::local_time();
         keep_sending_ = false;
     }
 
@@ -89,6 +91,12 @@ struct Dispatcher::DispatcherImpl {
     //list<> available_;
     MessageManager& msg_mgr_;
     QueryContextCreator& ctx_creator_;
+
+    // statistics
+    size_t queries_sent_;
+    size_t queries_completed_;
+    ptime start_time_;
+    ptime end_time_;
 };
 
 void
@@ -112,11 +120,14 @@ Dispatcher::DispatcherImpl::run() {
         outstanding_.push_back(qev);
         qev.reset();
     }
-    // Dispatch initial queries at once.
+
+    // Record the start time and dispatch initial queries at once.
+    start_time_ = microsec_clock::local_time();
     BOOST_FOREACH(QueryEvent& qev, outstanding_) {
         QueryContext::WireData qry_data = qev.ctx_->start(qid_);
         qev.qid_ = qid_;
         udp_socket_->send(qry_data.data, qry_data.len);
+        ++queries_sent_;
         ++qid_;
     }
 
@@ -148,11 +159,14 @@ Dispatcher::DispatcherImpl::responseCallback(
     if (qev_it != outstanding_.end()) {
         // TODO: let the context check the response further
 
+        ++queries_completed_;
+
         // If necessary, create a new query and dispatch it.
         if (keep_sending_) {
             QueryContext::WireData qry_data = qev_it->ctx_->start(qid_);
             qev_it->qid_ = qid_;
             udp_socket_->send(qry_data.data, qry_data.len);
+            ++queries_sent_;
             ++qid_;
 
             // Move this context to the end of the queue.
@@ -182,6 +196,26 @@ void
 Dispatcher::run() {
     assert(impl_->udp_socket_ == NULL);
     impl_->run();
+}
+
+size_t
+Dispatcher::getQueriesSent() const {
+    return (impl_->queries_sent_);
+}
+
+size_t
+Dispatcher::getQueriesCompleted() const {
+    return (impl_->queries_completed_);
+}
+
+const ptime&
+Dispatcher::getStartTime() const {
+    return (impl_->start_time_);
+}
+
+const ptime&
+Dispatcher::getEndTime() const {
+    return (impl_->end_time_);
 }
 
 } // end of QueryPerf

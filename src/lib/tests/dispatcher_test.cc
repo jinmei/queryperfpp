@@ -28,6 +28,7 @@
 #include <gtest/gtest.h>
 
 #include <boost/bind.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 
 #include <sstream>
 
@@ -79,7 +80,11 @@ initialQueryCheck(DispatcherTest* test) {
 
 TEST_F(DispatcherTest, initialQueries) {
     msg_mgr.setRunHandler(boost::bind(initialQueryCheck, this));
+    EXPECT_EQ(0, disp.getQueriesSent());
+    EXPECT_EQ(0, disp.getQueriesCompleted());
     disp.run();
+    EXPECT_EQ(20, disp.getQueriesSent());
+    EXPECT_EQ(0, disp.getQueriesCompleted());
 }
 
 void
@@ -184,6 +189,12 @@ TEST_F(DispatcherTest, sessionTimer) {
     EXPECT_EQ(50, msg_mgr.socket_->queries_.size());
     EXPECT_TRUE(msg_mgr.socket_->queries_.back()->getHeaderFlag(
                     Message::HEADERFLAG_QR));
+
+    EXPECT_EQ(50, disp.getQueriesSent());
+    EXPECT_EQ(50, disp.getQueriesCompleted());
+    EXPECT_FALSE(disp.getStartTime().is_special());
+    EXPECT_FALSE(disp.getEndTime().is_special());
+    EXPECT_TRUE(disp.getStartTime() < disp.getEndTime());
 }
 
 } // unnamed namespace

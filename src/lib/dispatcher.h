@@ -18,6 +18,7 @@
 #include <libqueryperfpp_fwd.h>
 
 #include <boost/noncopyable.hpp>
+#include <boost/date_time/posix_time/posix_time_types.hpp>
 
 #include <sys/types.h>
 
@@ -42,7 +43,21 @@ public:
     Dispatcher(MessageManager& msg_mgr, QueryContextCreator& ctx_creator);
     ~Dispatcher();
 
+    /// \brief Start the dispatcher.
     void run();
+
+    /// \brief Return the number of queries sent from the dispatcher.
+    size_t getQueriesSent() const;
+
+    /// \brief Return the number of queries correctly responded.
+    size_t getQueriesCompleted() const;
+
+    /// \brief Return the absolute time when the first query was sent.
+    const boost::posix_time::ptime& getStartTime() const;
+
+    /// \brief Return the absolute time when the dispatcher stops sending
+    /// new queries.
+    const boost::posix_time::ptime& getEndTime() const;
 
 private:
     struct DispatcherImpl;

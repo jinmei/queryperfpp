@@ -197,4 +197,10 @@ TEST_F(DispatcherTest, sessionTimer) {
     EXPECT_TRUE(disp.getStartTime() < disp.getEndTime());
 }
 
+TEST_F(DispatcherTest, builtins) {
+    // creating dispatcher with "builtin" support classes.  No disruption
+    // should happen.
+    EXPECT_NO_THROW(Dispatcher disp("test-input.txt"));
+}
+
 } // unnamed namespace

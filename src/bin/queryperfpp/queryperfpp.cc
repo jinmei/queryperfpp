@@ -50,9 +50,6 @@ runQueryperf(void* arg) {
     return (NULL);
 }
 
-typedef shared_ptr<QueryRepository> QueryRepositoryPtr;
-typedef shared_ptr<ASIOMessageManager> ASIOMessageManagerPtr;
-typedef shared_ptr<QueryContextCreator> QueryContextCreatorPtr;
 typedef shared_ptr<Dispatcher> DispatcherPtr;
 }
 
@@ -81,26 +78,15 @@ main(int argc, char* argv[]) {
     }
 
     try {
-        vector<QueryRepositoryPtr> repositories;
-        vector<ASIOMessageManagerPtr> msg_mgrs;
-        vector<QueryContextCreatorPtr> ctx_creators;
         vector<DispatcherPtr> dispatchers;
-        vector<pthread_t> threads;
 
         // Prepare
         for (size_t i = 0; i < num_threads; ++i) {
-            repositories.push_back(QueryRepositoryPtr(new QueryRepository(
-                                                          data_file)));
-            msg_mgrs.push_back(ASIOMessageManagerPtr(new ASIOMessageManager));
-            ctx_creators.push_back(QueryContextCreatorPtr(
-                                       new QueryContextCreator(
-                                           *repositories.back())));
-            dispatchers.push_back(DispatcherPtr(new Dispatcher(
-                                                    *msg_mgrs.back(),
-                                                    *ctx_creators.back())));
+            dispatchers.push_back(DispatcherPtr(new Dispatcher(data_file)));
         }
 
         // Run
+        vector<pthread_t> threads;
         for (size_t i = 0; i < num_threads; ++i) {
             pthread_t th;
             const int error = pthread_create(&th, NULL, runQueryperf,

@@ -13,8 +13,10 @@
 // PERFORMANCE OF THIS SOFTWARE.
 
 #include <query_context.h>
+#include <query_repository.h>
 #include <dispatcher.h>
 #include <message_manager.h>
+#include <asio_message_manager.h>
 
 #include <util/buffer.h>
 
@@ -63,10 +65,30 @@ namespace Queryperf {
 struct Dispatcher::DispatcherImpl {
     DispatcherImpl(MessageManager& msg_mgr,
                    QueryContextCreator& ctx_creator) :
-        keep_sending_(true), window_(DEFAULT_WINDOW), qid_(0),
-        response_(Message::PARSE), udp_socket_(NULL), msg_mgr_(msg_mgr),
-        ctx_creator_(ctx_creator), queries_sent_(0), queries_completed_(0)
-    {}
+        msg_mgr_(&msg_mgr), qryctx_creator_(&ctx_creator),
+        response_(Message::PARSE)
+    {
+        initParams();
+    }
+
+    DispatcherImpl(const string& data_file) :
+        qry_repo_local_(new QueryRepository(data_file)),
+        msg_mgr_local_(new ASIOMessageManager),
+        qryctx_creator_local_(new QueryContextCreator(*qry_repo_local_)),
+        msg_mgr_(msg_mgr_local_.get()),
+        qryctx_creator_(qryctx_creator_local_.get()),
+        response_(Message::PARSE)
+    {
+        initParams();
+    }
+
+    void initParams() {
+        keep_sending_ = true;
+        window_ = DEFAULT_WINDOW;
+        qid_ = 0;
+        queries_sent_ = 0;
+        queries_completed_ = 0;
+    }
 
     void run();
 
@@ -80,16 +102,27 @@ struct Dispatcher::DispatcherImpl {
         keep_sending_ = false;
     }
 
+    // These are placeholders for the support class objects when they are
+    // built within the context.
+    scoped_ptr<QueryRepository> qry_repo_local_;
+    scoped_ptr<ASIOMessageManager> msg_mgr_local_;
+    scoped_ptr<QueryContextCreator> qryctx_creator_local_;
+
+    // These are pointers to the objects actually used in the object
+    MessageManager* msg_mgr_;
+    QueryContextCreator* qryctx_creator_;
+
+    // Note that these should be placed after msg_mgr_local_; in the destructor
+    // these should be released first.
+    scoped_ptr<MessageSocket> udp_socket_;
+    scoped_ptr<MessageTimer> session_timer_;
+
     bool keep_sending_; // whether to send next query on getting a response
     size_t window_;
     qid_t qid_;
     Message response_;          // placeholder for response messages
-    scoped_ptr<MessageSocket> udp_socket_;
-    scoped_ptr<MessageTimer> session_timer_;
     list<QueryEvent> outstanding_;
     //list<> available_;
-    MessageManager& msg_mgr_;
-    QueryContextCreator& ctx_creator_;
 
     // statistics
     size_t queries_sent_;
@@ -102,11 +135,11 @@ void
 Dispatcher::DispatcherImpl::run() {
     // Allocate resources used throughout the test session:
     // common UDP socket and the whole session timer.
-    udp_socket_.reset(msg_mgr_.createMessageSocket(
+    udp_socket_.reset(msg_mgr_->createMessageSocket(
                           IPPROTO_UDP, "::1", 5300,
                           boost::bind(&DispatcherImpl::responseCallback,
                                       this, _1)));
-    session_timer_.reset(msg_mgr_.createMessageTimer(
+    session_timer_.reset(msg_mgr_->createMessageTimer(
                              boost::bind(&DispatcherImpl::sessionTimerCallback,
                                          this)));
 
@@ -115,7 +148,7 @@ Dispatcher::DispatcherImpl::run() {
 
     // Create a pool of query contexts.  Setting QID to 0 for now.
     for (size_t i = 0; i < window_; ++i) {
-        QueryEvent qev(0, ctx_creator_.create());
+        QueryEvent qev(0, qryctx_creator_->create());
         outstanding_.push_back(qev);
         qev.reset();
     }
@@ -131,7 +164,7 @@ Dispatcher::DispatcherImpl::run() {
     }
 
     // Enter the event loop.
-    msg_mgr_.run();
+    msg_mgr_->run();
 }
 
 namespace {
@@ -173,7 +206,7 @@ Dispatcher::DispatcherImpl::responseCallback(
         } else {
             outstanding_.erase(qev_it);
             if (outstanding_.empty()) {
-                msg_mgr_.stop();
+                msg_mgr_->stop();
             }
         }
     } else {
@@ -184,6 +217,11 @@ Dispatcher::DispatcherImpl::responseCallback(
 Dispatcher::Dispatcher(MessageManager& msg_mgr,
                        QueryContextCreator& ctx_creator) :
     impl_(new DispatcherImpl(msg_mgr, ctx_creator))
+{
+}
+
+Dispatcher::Dispatcher(const string& data_file) :
+    impl_(new DispatcherImpl(data_file))
 {
 }
 

@@ -38,9 +38,16 @@ public:
     /// \brief Default test duration in seconds.
     static const long DEFAULT_DURATION = 30;
 
+    /// \brief Generic constructor.
+    ///
     /// \param msg_mgr A message manager object that handles I/O and timeout
     /// events.
     Dispatcher(MessageManager& msg_mgr, QueryContextCreator& ctx_creator);
+
+    /// \brief Constructor when using "builtin" classes.
+    Dispatcher(const std::string& data_file);
+
+    /// Destructor.
     ~Dispatcher();
 
     /// \brief Start the dispatcher.

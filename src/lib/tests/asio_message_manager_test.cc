@@ -280,6 +280,12 @@ TEST_F(ASIOMessageManagerTest, createMessageSocketIPv4) {
     const int s =  sock->native();
     EXPECT_NE(-1, s);
 
+    // Receive buffer size should be at least 32KB.
+    int bufsize;
+    socklen_t optlen = sizeof(bufsize);
+    EXPECT_EQ(0, getsockopt(s, SOL_SOCKET, SO_RCVBUF, &bufsize, &optlen));
+    EXPECT_LE(32768, bufsize);
+
     // The socket should be already bound (and connected)
     struct sockaddr_in sin4;
     memset(&sin4, 0, sizeof(sin4));

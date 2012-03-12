@@ -57,9 +57,14 @@ UDPMessageSocket::UDPMessageSocket(io_service& io_service,
     asio_sock_(io_service), callback_(callback), receiving_(false)
 {
     try {
+        // connect the socket, which implicitly opens a new one.
         const udp::endpoint dest(asio::ip::address::from_string(address),
                                  port);
         asio_sock_.connect(dest);
+
+        // make sure the receive buffer is large enough (32KB, derived from
+        // the original queryperf)
+        asio_sock_.set_option(asio::socket_base::receive_buffer_size(32768));
     } catch (const asio::system_error& e) {
         throw MessageSocketError(string("Failed to create a socket: ") +
                                  e.what());

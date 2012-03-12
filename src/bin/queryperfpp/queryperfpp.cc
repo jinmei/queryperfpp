@@ -102,7 +102,7 @@ main(int argc, char* argv[]) {
 
         // Run
         for (size_t i = 0; i < num_threads; ++i) {
-            pthread_t th = NULL;
+            pthread_t th;
             const int error = pthread_create(&th, NULL, runQueryperf,
                                              dispatchers[i].get());
             if (error != 0) {

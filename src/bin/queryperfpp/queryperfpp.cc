@@ -36,7 +36,7 @@ using boost::shared_ptr;
 namespace {
 void
 usage() {
-    cerr << "Usage: queryperf++ [-d datafile]" << endl;
+    cerr << "Usage: queryperf++ [-d datafile] [-n #threads]" << endl;
     exit(1);
 }
 

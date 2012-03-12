@@ -104,11 +104,12 @@ QueryRepository::getNextQuery(Message& query_msg) {
         try {
             question.reset(new Question(Name(qname_text), RRClass::IN(),
                                         RRType(qtype_text)));
-        } catch (const isc::Exception&) {
+        } catch (const isc::Exception& ex) {
             // The input data may contain bad string, which would trigger an
             // exception.  We ignore them and continue reading until we find
             // a valid one.
-            ;
+            cerr << "Error parsing query (" << ex.what() << "): "
+                 << line << endl;
         }
     }
 

@@ -203,4 +203,17 @@ TEST_F(DispatcherTest, builtins) {
     EXPECT_NO_THROW(Dispatcher disp("test-input.txt"));
 }
 
+TEST_F(DispatcherTest, serverAddress) {
+    // Default server address
+    EXPECT_EQ("::1", disp.getServerAddress());
+
+    // Reset it.
+    disp.setServerAddress("127.0.0.1");
+    EXPECT_EQ("127.0.0.1", disp.getServerAddress());
+
+    // Once started it cannot be changed.
+    disp.run();
+    EXPECT_THROW(disp.setServerAddress("::1"), DispatcherError);
+}
+
 } // unnamed namespace

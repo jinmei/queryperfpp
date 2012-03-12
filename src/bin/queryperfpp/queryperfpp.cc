@@ -53,16 +53,20 @@ typedef shared_ptr<Dispatcher> DispatcherPtr;
 int
 main(int argc, char* argv[]) {
     const char* data_file = NULL;
+    const char* server_address = NULL;
     size_t num_threads = 1;
 
     int ch;
-    while ((ch = getopt(argc, argv, "d:n:")) != -1) {
+    while ((ch = getopt(argc, argv, "d:n:s:")) != -1) {
         switch (ch) {
         case 'd':
             data_file = optarg;
             break;
         case 'n':
             num_threads = lexical_cast<size_t>(optarg);
+            break;
+        case 's':
+            server_address = optarg;
             break;
         case '?':
         default :
@@ -79,7 +83,11 @@ main(int argc, char* argv[]) {
 
         // Prepare
         for (size_t i = 0; i < num_threads; ++i) {
-            dispatchers.push_back(DispatcherPtr(new Dispatcher(data_file)));
+            DispatcherPtr disp(new Dispatcher(data_file));
+            if (server_address != NULL) {
+                disp->setServerAddress(server_address);
+            }
+            dispatchers.push_back(disp);
         }
 
         // Run

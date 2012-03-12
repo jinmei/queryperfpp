@@ -88,6 +88,7 @@ struct Dispatcher::DispatcherImpl {
         qid_ = 0;
         queries_sent_ = 0;
         queries_completed_ = 0;
+        server_address_ = DEFAULT_SERVER;
     }
 
     void run();
@@ -117,6 +118,9 @@ struct Dispatcher::DispatcherImpl {
     scoped_ptr<MessageSocket> udp_socket_;
     scoped_ptr<MessageTimer> session_timer_;
 
+    // Configurable parameters
+    string server_address_;
+
     bool keep_sending_; // whether to send next query on getting a response
     size_t window_;
     qid_t qid_;
@@ -136,7 +140,7 @@ Dispatcher::DispatcherImpl::run() {
     // Allocate resources used throughout the test session:
     // common UDP socket and the whole session timer.
     udp_socket_.reset(msg_mgr_->createMessageSocket(
-                          IPPROTO_UDP, "::1", 5300,
+                          IPPROTO_UDP, server_address_, 5300,
                           boost::bind(&DispatcherImpl::responseCallback,
                                       this, _1)));
     session_timer_.reset(msg_mgr_->createMessageTimer(
@@ -220,6 +224,8 @@ Dispatcher::Dispatcher(MessageManager& msg_mgr,
 {
 }
 
+const char* const Dispatcher::DEFAULT_SERVER = "::1";
+
 Dispatcher::Dispatcher(const string& data_file) :
     impl_(new DispatcherImpl(data_file))
 {
@@ -234,6 +240,19 @@ Dispatcher::run() {
     assert(impl_->udp_socket_ == NULL);
     impl_->run();
     impl_->end_time_ = microsec_clock::local_time();
+}
+
+string
+Dispatcher::getServerAddress() const {
+    return (impl_->server_address_);
+}
+
+void
+Dispatcher::setServerAddress(const string& address) {
+    if (!impl_->start_time_.is_special()) {
+        throw DispatcherError("server address cannot be reset after run()");
+    }
+    impl_->server_address_ = address;
 }
 
 size_t

@@ -20,9 +20,19 @@
 #include <boost/noncopyable.hpp>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 
+#include <stdexcept>
+
 #include <sys/types.h>
 
 namespace Queryperf {
+
+/// \brief Exception class thrown on an error within the dispatcher.
+class DispatcherError : public std::runtime_error {
+public:
+    explicit DispatcherError(const std::string& what_arg) :
+        std::runtime_error(what_arg)
+    {}
+};
 
 class Dispatcher : private boost::noncopyable {
 public:
@@ -38,6 +48,9 @@ public:
     /// \brief Default test duration in seconds.
     static const long DEFAULT_DURATION = 30;
 
+    /// \brief Default server address to be tested (::1)
+    static const char* const DEFAULT_SERVER;
+
     /// \brief Generic constructor.
     ///
     /// \param msg_mgr A message manager object that handles I/O and timeout
@@ -52,6 +65,9 @@ public:
 
     /// \brief Start the dispatcher.
     void run();
+
+    void setServerAddress(const std::string& address);
+    std::string getServerAddress() const;
 
     /// \brief Return the number of queries sent from the dispatcher.
     size_t getQueriesSent() const;

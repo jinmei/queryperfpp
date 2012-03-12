@@ -77,7 +77,6 @@ struct Dispatcher::DispatcherImpl {
     // Callback from the message manager on expiration of the session timer.
     // Stop sending more queries; only wait for outstanding ones.
     void sessionTimerCallback() {
-        end_time_ = microsec_clock::local_time();
         keep_sending_ = false;
     }
 
@@ -196,6 +195,7 @@ void
 Dispatcher::run() {
     assert(impl_->udp_socket_ == NULL);
     impl_->run();
+    impl_->end_time_ = microsec_clock::local_time();
 }
 
 size_t

@@ -55,8 +55,7 @@ public:
     /// \brief Return the absolute time when the first query was sent.
     const boost::posix_time::ptime& getStartTime() const;
 
-    /// \brief Return the absolute time when the dispatcher stops sending
-    /// new queries.
+    /// \brief Return the absolute time when the dispatcher stops.
     const boost::posix_time::ptime& getEndTime() const;
 
 private:

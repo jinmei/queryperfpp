@@ -36,33 +36,35 @@ using namespace isc::dns;
 namespace {
 // an ad hoc threadshold to prevent a busy loop due to an empty input file.
 const size_t MAX_EMPTY_LOOP = 1000;
-
-// BIND 10 libdns++ doesn't yet recognize all standardized RR type menmonics.
-// To suppress noisy log and avoid ignoring query data containing such RR
-// types, we use a homebrew mapping table.
-const map<string, string>&
-getAuxiliaryTypeMap() {
-    static map<string, string> typemap;
-    if (typemap.empty()) {
-        typemap["A6"] = "TYPE38";
-        typemap["ANY"] = "TYPE255";
-    }
-    return (typemap);
-}
 }
 
 namespace Queryperf {
 
 struct QueryRepository::QueryRepositoryImpl {
-    QueryRepositoryImpl(istream& input) : input_(input) {}
+    QueryRepositoryImpl(istream& input) : input_(input) {
+        initialize();
+    }
 
     QueryRepositoryImpl(const string& input_file) :
         input_ifs_(new ifstream(input_file.c_str())),
         input_(*input_ifs_)
-    {}
+    {
+        initialize();
+    }
+
+    void initialize() {
+        // BIND 10 libdns++ doesn't yet recognize all standardized RR type
+        // menmonics.  To suppress noisy log and avoid ignoring query data
+        // containing such RR types, we use a homebrew mapping table.
+        // We keep the same map for each repository object to avoid inter
+        // thread contention.
+        aux_typemap_["A6"] = "TYPE38";
+        aux_typemap_["ANY"] = "TYPE255";
+    }
 
     scoped_ptr<ifstream> input_ifs_;
     istream& input_;
+    map<string, string> aux_typemap_;
 };
 
 QueryRepository::QueryRepository(istream& input) :
@@ -116,9 +118,9 @@ QueryRepository::getNextQuery(Message& query_msg) {
             continue;
         }
         // Workaround for some RR types that are not recognized by BIND 10
-        const map<string, string>& aux_map = getAuxiliaryTypeMap();
-        map<string, string>::const_iterator it = aux_map.find(qtype_text);
-        if (it != aux_map.end()) {
+        map<string, string>::const_iterator it =
+            impl_->aux_typemap_.find(qtype_text);
+        if (it != impl_->aux_typemap_.end()) {
             qtype_text = it->second;
         }
         try {

@@ -89,6 +89,8 @@ struct Dispatcher::DispatcherImpl {
         queries_sent_ = 0;
         queries_completed_ = 0;
         server_address_ = DEFAULT_SERVER;
+        server_port_ = DEFAULT_PORT;
+        test_duration_ = DEFAULT_DURATION;
     }
 
     void run();
@@ -120,6 +122,8 @@ struct Dispatcher::DispatcherImpl {
 
     // Configurable parameters
     string server_address_;
+    uint16_t server_port_;
+    size_t test_duration_;
 
     bool keep_sending_; // whether to send next query on getting a response
     size_t window_;
@@ -140,7 +144,7 @@ Dispatcher::DispatcherImpl::run() {
     // Allocate resources used throughout the test session:
     // common UDP socket and the whole session timer.
     udp_socket_.reset(msg_mgr_->createMessageSocket(
-                          IPPROTO_UDP, server_address_, 5300,
+                          IPPROTO_UDP, server_address_, server_port_,
                           boost::bind(&DispatcherImpl::responseCallback,
                                       this, _1)));
     session_timer_.reset(msg_mgr_->createMessageTimer(
@@ -148,7 +152,7 @@ Dispatcher::DispatcherImpl::run() {
                                          this)));
 
     // Start the session timer.
-    session_timer_->start(seconds(DEFAULT_DURATION));
+    session_timer_->start(seconds(test_duration_));
 
     // Create a pool of query contexts.  Setting QID to 0 for now.
     for (size_t i = 0; i < window_; ++i) {
@@ -253,6 +257,32 @@ Dispatcher::setServerAddress(const string& address) {
         throw DispatcherError("server address cannot be reset after run()");
     }
     impl_->server_address_ = address;
+}
+
+uint16_t
+Dispatcher::getServerPort() const {
+    return (impl_->server_port_);
+}
+
+void
+Dispatcher::setServerPort(uint16_t port) {
+    if (!impl_->start_time_.is_special()) {
+        throw DispatcherError("server port cannot be reset after run()");
+    }
+    impl_->server_port_ = port;
+}
+
+size_t
+Dispatcher::getTestDuration() const {
+    return (impl_->test_duration_);
+}
+
+void
+Dispatcher::setTestDuration(size_t duration) {
+    if (!impl_->start_time_.is_special()) {
+        throw DispatcherError("test duration cannot be reset after run()");
+    }
+    impl_->test_duration_ = duration;
 }
 
 size_t

@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <stdint.h>
 
 using namespace std;
 using namespace Queryperf;
@@ -36,7 +37,8 @@ using boost::shared_ptr;
 namespace {
 void
 usage() {
-    cerr << "Usage: queryperf++ [-d datafile] [-n #threads]" << endl;
+    cerr << "Usage: queryperf++ [-d datafile] [-n #threads]\n";
+    cerr << "                   [-s server_addr] [-p port] [-l limit]" << endl;
     exit(1);
 }
 
@@ -58,19 +60,28 @@ int
 main(int argc, char* argv[]) {
     const char* data_file = NULL;
     const char* server_address = NULL;
+    const char* server_port_txt = NULL;
+    const char* time_limit_txt = NULL;
+    const char* num_threads_txt = NULL;
     size_t num_threads = 1;
 
     int ch;
-    while ((ch = getopt(argc, argv, "d:n:s:")) != -1) {
+    while ((ch = getopt(argc, argv, "d:l:n:p:s:")) != -1) {
         switch (ch) {
         case 'd':
             data_file = optarg;
             break;
         case 'n':
-            num_threads = lexical_cast<size_t>(optarg);
+            num_threads_txt = optarg;
             break;
         case 's':
             server_address = optarg;
+            break;
+        case 'p':
+            server_port_txt = optarg;
+            break;
+        case 'l':
+            time_limit_txt = optarg;
             break;
         case '?':
         default :
@@ -84,12 +95,21 @@ main(int argc, char* argv[]) {
 
     try {
         vector<DispatcherPtr> dispatchers;
+        if (num_threads_txt != NULL) {
+            num_threads = lexical_cast<size_t>(num_threads_txt);
+        }
 
         // Prepare
         for (size_t i = 0; i < num_threads; ++i) {
             DispatcherPtr disp(new Dispatcher(data_file));
             if (server_address != NULL) {
                 disp->setServerAddress(server_address);
+            }
+            if (server_port_txt != NULL) {
+                disp->setServerPort(lexical_cast<uint16_t>(server_port_txt));
+            }
+            if (time_limit_txt != NULL) {
+                disp->setTestDuration(lexical_cast<size_t>(time_limit_txt));
             }
             dispatchers.push_back(disp);
         }

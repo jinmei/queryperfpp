@@ -216,4 +216,30 @@ TEST_F(DispatcherTest, serverAddress) {
     EXPECT_THROW(disp.setServerAddress("::1"), DispatcherError);
 }
 
+TEST_F(DispatcherTest, serverPort) {
+    // Default server port
+    EXPECT_EQ(53, disp.getServerPort());
+
+    // Reset it.
+    disp.setServerPort(5300);
+    EXPECT_EQ(5300, disp.getServerPort());
+
+    // Once started it cannot be changed.
+    disp.run();
+    EXPECT_THROW(disp.setServerAddress("::1"), DispatcherError);
+}
+
+TEST_F(DispatcherTest, testDuration) {
+    // Default test duration
+    EXPECT_EQ(30, disp.getTestDuration());
+
+    // Reset it.
+    disp.setTestDuration(60);
+    EXPECT_EQ(60, disp.getTestDuration());
+
+    // Once started it cannot be changed.
+    disp.run();
+    EXPECT_THROW(disp.setTestDuration(120), DispatcherError);
+}
+
 } // unnamed namespace

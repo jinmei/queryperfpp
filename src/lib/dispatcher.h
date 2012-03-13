@@ -23,6 +23,7 @@
 #include <stdexcept>
 
 #include <sys/types.h>
+#include <stdint.h>
 
 namespace Queryperf {
 
@@ -51,6 +52,9 @@ public:
     /// \brief Default server address to be tested (::1)
     static const char* const DEFAULT_SERVER;
 
+    /// \brief Default server port
+    static const uint16_t DEFAULT_PORT = 53;
+
     /// \brief Generic constructor.
     ///
     /// \param msg_mgr A message manager object that handles I/O and timeout
@@ -68,6 +72,12 @@ public:
 
     void setServerAddress(const std::string& address);
     std::string getServerAddress() const;
+
+    void setServerPort(uint16_t port);
+    uint16_t getServerPort() const;
+
+    void setTestDuration(size_t duration);
+    size_t getTestDuration() const;
 
     /// \brief Return the number of queries sent from the dispatcher.
     size_t getQueriesSent() const;

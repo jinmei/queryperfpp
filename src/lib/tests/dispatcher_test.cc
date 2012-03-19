@@ -65,7 +65,23 @@ initialQueryCheck(DispatcherTest* test) {
     // the expected ones.
 
     ASSERT_TRUE(test->msg_mgr.socket_);
+    // There should be 20 initial queries queued.
     EXPECT_EQ(20, test->msg_mgr.socket_->queries_.size());
+    // Each of the queries have associated timers, following the session timer.
+    // All timers should have just started.
+    EXPECT_EQ(21, test->msg_mgr.timers_.size());
+    for (vector<TestMessageTimer*>::const_iterator it =
+             test->msg_mgr.timers_.begin();
+         it != test->msg_mgr.timers_.end();
+         ++it) {
+        EXPECT_EQ(1, (*it)->n_started_);
+        // Check the timer duration: 30 for session timer, 5 for query timers.
+        if (it == test->msg_mgr.timers_.begin()) {
+            EXPECT_EQ(30, (*it)->duration_seconds_);
+        } else {
+            EXPECT_EQ(5, (*it)->duration_seconds_);
+        }
+    }
     for (size_t i = 0; i < test->msg_mgr.socket_->queries_.size(); ++i) {
         queryMessageCheck(*test->msg_mgr.socket_->queries_[i], i,
                           (i % 2) == 0 ? Name("example.com") :
@@ -100,6 +116,9 @@ respondToQuery(TestMessageManager* mgr, size_t qid) {
     // Another query should have been sent immediatelly, and should be
     // recorded in the manager.
     EXPECT_EQ(21 + qid, mgr->socket_->queries_.size());
+
+    // The corresponding timer should have been restarted.
+    EXPECT_EQ((qid / 20) + 2, mgr->timers_.at((qid % 20) + 1)->n_started_);
 
     // Continue this until we respond to all initial queries and the first
     // query in the second round.
@@ -157,7 +176,7 @@ respondToQueryForDuration(TestMessageManager* mgr, size_t qid) {
         return;
     }
 
-    // Simplest of query responder: always return a simple response
+    // Simplest form of query responder: always return a simple response
     Message& query = *mgr->socket_->queries_.at(qid);
     query.makeResponse();
     MessageRenderer renderer;
@@ -174,14 +193,13 @@ respondToQueryForDuration(TestMessageManager* mgr, size_t qid) {
 }
 
 TEST_F(DispatcherTest, sessionTimer) {
-    msg_mgr.setRunHandler(boost::bind(respondToQueryForDuration, &msg_mgr,
-                                      0));
+    msg_mgr.setRunHandler(boost::bind(respondToQueryForDuration, &msg_mgr, 0));
     disp.run();
 
     // Check if the session timer has started and its duration is correct.
     // The first timer in the timers_ queue should be the session timer.
     ASSERT_FALSE(msg_mgr.timers_.empty());
-    EXPECT_TRUE(msg_mgr.timers_[0]->started_);
+    EXPECT_EQ(1, msg_mgr.timers_[0]->n_started_);
     EXPECT_EQ(30, msg_mgr.timers_[0]->duration_seconds_);
 
     // There should have been int(duration) + #initial queries = 50, and the
@@ -195,6 +213,10 @@ TEST_F(DispatcherTest, sessionTimer) {
     EXPECT_FALSE(disp.getStartTime().is_special());
     EXPECT_FALSE(disp.getEndTime().is_special());
     EXPECT_TRUE(disp.getStartTime() < disp.getEndTime());
+}
+
+TEST_F(DispatcherTest, aueryTimer) {
+    //disp.run();
 }
 
 TEST_F(DispatcherTest, builtins) {

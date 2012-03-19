@@ -55,6 +55,9 @@ public:
     /// \brief Default server port
     static const uint16_t DEFAULT_PORT = 53;
 
+    /// \brief Default timeout for query completion in seconds.
+    static const unsigned int DEFAULT_QUERY_TIMEOUT = 5;
+
     /// \brief Generic constructor.
     ///
     /// \param msg_mgr A message manager object that handles I/O and timeout

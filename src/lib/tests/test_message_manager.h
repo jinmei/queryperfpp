@@ -49,14 +49,14 @@ public:
 class TestMessageTimer : public MessageTimer, private boost::noncopyable {
 public:
     TestMessageTimer(Callback callback) :
-        callback_(callback), started_(false), duration_seconds_(0)
+        callback_(callback), n_started_(0), duration_seconds_(0)
     {}
 
     virtual void start(const boost::posix_time::time_duration& duration);
     virtual void cancel();
 
     Callback callback_;
-    bool started_;
+    unsigned int n_started_;    // number of times started
     long duration_seconds_;
 };
 

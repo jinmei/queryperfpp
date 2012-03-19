@@ -49,7 +49,7 @@ TestMessageSocket::send(const void* data, size_t datalen) {
 
 void
 TestMessageTimer::start(const boost::posix_time::time_duration& duration) {
-    started_ = true;
+    ++n_started_;
     duration_seconds_ = duration.seconds();
 }
 

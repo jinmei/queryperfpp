@@ -25,6 +25,7 @@
 #include <boost/bind.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/scoped_ptr.hpp>
+#include <boost/shared_ptr.hpp>
 #include <boost/foreach.hpp>
 
 #include <algorithm>
@@ -38,25 +39,37 @@ using namespace isc::util;
 using namespace isc::dns;
 using namespace Queryperf;
 using boost::scoped_ptr;
+using boost::shared_ptr;
 using namespace boost::posix_time;
 using boost::posix_time::seconds;
 
 namespace {
-struct QueryEvent {
-    QueryEvent(qid_t qid, QueryContext* ctx) :
-        qid_(qid), ctx_(ctx)
+class QueryEvent {
+public:
+    QueryEvent(MessageManager& mgr, qid_t qid, QueryContext* ctx) :
+        ctx_(ctx), qid_(qid),
+        timer_(mgr.createMessageTimer(
+                   boost::bind(&QueryEvent::queryTimerCallback, this)))
     {}
 
     ~QueryEvent() {
         delete ctx_;
     }
 
-    void reset() {
-        ctx_ = NULL;
+    QueryContext::WireData start(qid_t qid, const time_duration& timeout) {
+        assert(ctx_ != NULL);
+        qid_ = qid;
+        timer_->start(timeout);
+        return (ctx_->start(qid_));
     }
 
-    qid_t qid_;
+    bool matchResponse(qid_t qid) const { return (qid_ == qid); }
+
+private:
     QueryContext* ctx_;
+    qid_t qid_;
+    void queryTimerCallback() {}
+    shared_ptr<MessageTimer> timer_;
 };
 } // unnamed namespace
 
@@ -91,6 +104,7 @@ struct Dispatcher::DispatcherImpl {
         server_address_ = DEFAULT_SERVER;
         server_port_ = DEFAULT_PORT;
         test_duration_ = DEFAULT_DURATION;
+        query_timeout_ = seconds(DEFAULT_QUERY_TIMEOUT);
     }
 
     void run();
@@ -124,12 +138,13 @@ struct Dispatcher::DispatcherImpl {
     string server_address_;
     uint16_t server_port_;
     size_t test_duration_;
+    time_duration query_timeout_;
 
     bool keep_sending_; // whether to send next query on getting a response
     size_t window_;
     qid_t qid_;
     Message response_;          // placeholder for response messages
-    list<QueryEvent> outstanding_;
+    list<shared_ptr<QueryEvent> > outstanding_;
     //list<> available_;
 
     // statistics
@@ -156,16 +171,15 @@ Dispatcher::DispatcherImpl::run() {
 
     // Create a pool of query contexts.  Setting QID to 0 for now.
     for (size_t i = 0; i < window_; ++i) {
-        QueryEvent qev(0, qryctx_creator_->create());
+        shared_ptr<QueryEvent> qev(new QueryEvent(*msg_mgr_, 0,
+                                                  qryctx_creator_->create()));
         outstanding_.push_back(qev);
-        qev.reset();
     }
 
     // Record the start time and dispatch initial queries at once.
     start_time_ = microsec_clock::local_time();
-    BOOST_FOREACH(QueryEvent& qev, outstanding_) {
-        QueryContext::WireData qry_data = qev.ctx_->start(qid_);
-        qev.qid_ = qid_;
+    BOOST_FOREACH(shared_ptr<QueryEvent>& qev, outstanding_) {
+        QueryContext::WireData qry_data = qev->start(qid_, query_timeout_);
         udp_socket_->send(qry_data.data, qry_data.len);
         ++queries_sent_;
         ++qid_;
@@ -173,13 +187,6 @@ Dispatcher::DispatcherImpl::run() {
 
     // Enter the event loop.
     msg_mgr_->run();
-}
-
-namespace {
-bool
-matchResponse(const QueryEvent& qev, qid_t qid) {
-    return (qev.qid_ == qid);
-}
 }
 
 void
@@ -193,9 +200,10 @@ Dispatcher::DispatcherImpl::responseCallback(
     // TODO: catch exception due to bogus response
 
     // Identify the matching query from the outstanding queue.
-    const list<QueryEvent>::iterator qev_it =
+    const list<shared_ptr<QueryEvent> >::iterator qev_it =
         find_if(outstanding_.begin(), outstanding_.end(),
-                boost::bind(matchResponse, _1, response_.getQid()));
+                boost::bind(&QueryEvent::matchResponse, _1,
+                            response_.getQid()));
     if (qev_it != outstanding_.end()) {
         // TODO: let the context check the response further
 
@@ -203,8 +211,8 @@ Dispatcher::DispatcherImpl::responseCallback(
 
         // If necessary, create a new query and dispatch it.
         if (keep_sending_) {
-            QueryContext::WireData qry_data = qev_it->ctx_->start(qid_);
-            qev_it->qid_ = qid_;
+            QueryContext::WireData qry_data = (*qev_it)->start(qid_,
+                                                               query_timeout_);
             udp_socket_->send(qry_data.data, qry_data.len);
             ++queries_sent_;
             ++qid_;

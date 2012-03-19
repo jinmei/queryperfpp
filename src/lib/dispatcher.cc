@@ -122,6 +122,7 @@ struct Dispatcher::DispatcherImpl {
     // delivered.
     void responseCallback(const MessageSocket::Event& sockev);
 
+    // Generate next query either due to completion or timeout.
     void restartQuery(qid_t qid, const Message* response);
 
     // Callback from the message manager on expiration of the session timer.

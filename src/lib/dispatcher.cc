@@ -46,7 +46,7 @@ using boost::posix_time::seconds;
 
 namespace {
 class QueryEvent {
-    typedef boost::function<void(qid_t)> RestartCallback;
+    typedef boost::function<void(qid_t, const Message*)> RestartCallback;
 public:
     QueryEvent(MessageManager& mgr, qid_t qid, QueryContext* ctx,
                RestartCallback restart_callback) :
@@ -71,7 +71,7 @@ public:
 private:
     void queryTimerCallback() {
         cout << "[Timeout] Query timed out: msg id: " << qid_ << endl;
-        restart_callback_(qid_);
+        restart_callback_(qid_, NULL);
     }
 
     QueryContext* ctx_;
@@ -122,7 +122,7 @@ struct Dispatcher::DispatcherImpl {
     // delivered.
     void responseCallback(const MessageSocket::Event& sockev);
 
-    void restartQuery(qid_t qid);
+    void restartQuery(qid_t qid, const Message* response);
 
     // Callback from the message manager on expiration of the session timer.
     // Stop sending more queries; only wait for outstanding ones.
@@ -185,7 +185,7 @@ Dispatcher::DispatcherImpl::run() {
         QueryEventPtr qev(new QueryEvent(
                               *msg_mgr_, 0, qryctx_creator_->create(),
                               boost::bind(&DispatcherImpl::restartQuery,
-                                          this, _1)));
+                                          this, _1, _2)));
         outstanding_.push_back(qev);
     }
 
@@ -212,19 +212,20 @@ Dispatcher::DispatcherImpl::responseCallback(
     response_.parseHeader(buffer);
     // TODO: catch exception due to bogus response
 
-    restartQuery(response_.getQid());
+    restartQuery(response_.getQid(), &response_);
 }
 
 void
-Dispatcher::DispatcherImpl::restartQuery(qid_t qid) {
+Dispatcher::DispatcherImpl::restartQuery(qid_t qid, const Message* response) {
     // Identify the matching query from the outstanding queue.
     const list<shared_ptr<QueryEvent> >::iterator qev_it =
         find_if(outstanding_.begin(), outstanding_.end(),
                 boost::bind(&QueryEvent::matchResponse, _1, qid));
     if (qev_it != outstanding_.end()) {
-        // TODO: let the context check the response further
-
-        ++queries_completed_;
+        if (response != NULL) {
+            // TODO: let the context check the response further
+            ++queries_completed_;
+        }
 
         // If necessary, create a new query and dispatch it.
         if (keep_sending_) {

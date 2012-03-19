@@ -182,6 +182,9 @@ queryTimeoutCallback(TestMessageManager* mgr) {
 TEST_F(DispatcherTest, queryTimeout) {
     msg_mgr.setRunHandler(boost::bind(queryTimeoutCallback, &msg_mgr));
     disp.run();
+
+    // No queries should have been considered completed.
+    EXPECT_EQ(0, disp.getQueriesCompleted());
 }
 
 void

@@ -169,6 +169,22 @@ TEST_F(DispatcherTest, queryMismatch) {
 }
 
 void
+queryTimeoutCallback(TestMessageManager* mgr) {
+    // Do timeout callcack for the first query.
+    mgr->timers_.at(1)->callback_();
+
+    // Then another query should have been sent.
+    EXPECT_EQ(21, mgr->socket_->queries_.size());
+
+    mgr->stop();
+}
+
+TEST_F(DispatcherTest, queryTimeout) {
+    msg_mgr.setRunHandler(boost::bind(queryTimeoutCallback, &msg_mgr));
+    disp.run();
+}
+
+void
 respondToQueryForDuration(TestMessageManager* mgr, size_t qid) {
     // If we reach the "duration" after the initial queries, we have responded
     // to all queries; the dispatcher should stop the manager.

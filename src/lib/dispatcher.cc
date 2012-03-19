@@ -23,6 +23,7 @@
 #include <dns/message.h>
 
 #include <boost/bind.hpp>
+#include <boost/function.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/scoped_ptr.hpp>
 #include <boost/shared_ptr.hpp>
@@ -45,9 +46,11 @@ using boost::posix_time::seconds;
 
 namespace {
 class QueryEvent {
+    typedef boost::function<void(qid_t)> RestartCallback;
 public:
-    QueryEvent(MessageManager& mgr, qid_t qid, QueryContext* ctx) :
-        ctx_(ctx), qid_(qid),
+    QueryEvent(MessageManager& mgr, qid_t qid, QueryContext* ctx,
+               RestartCallback restart_callback) :
+        ctx_(ctx), qid_(qid), restart_callback_(restart_callback),
         timer_(mgr.createMessageTimer(
                    boost::bind(&QueryEvent::queryTimerCallback, this)))
     {}
@@ -66,15 +69,21 @@ public:
     bool matchResponse(qid_t qid) const { return (qid_ == qid); }
 
 private:
+    void queryTimerCallback() {
+        cout << "[Timeout] Query timed out: msg id: " << qid_ << endl;
+        restart_callback_(qid_);
+    }
+
     QueryContext* ctx_;
     qid_t qid_;
-    void queryTimerCallback() {}
+    RestartCallback restart_callback_;
     shared_ptr<MessageTimer> timer_;
 };
+
+typedef shared_ptr<QueryEvent> QueryEventPtr;
 } // unnamed namespace
 
 namespace Queryperf {
-
 struct Dispatcher::DispatcherImpl {
     DispatcherImpl(MessageManager& msg_mgr,
                    QueryContextCreator& ctx_creator) :
@@ -112,6 +121,8 @@ struct Dispatcher::DispatcherImpl {
     // Callback from the message manager called when a response to a query is
     // delivered.
     void responseCallback(const MessageSocket::Event& sockev);
+
+    void restartQuery(qid_t qid);
 
     // Callback from the message manager on expiration of the session timer.
     // Stop sending more queries; only wait for outstanding ones.
@@ -171,8 +182,10 @@ Dispatcher::DispatcherImpl::run() {
 
     // Create a pool of query contexts.  Setting QID to 0 for now.
     for (size_t i = 0; i < window_; ++i) {
-        shared_ptr<QueryEvent> qev(new QueryEvent(*msg_mgr_, 0,
-                                                  qryctx_creator_->create()));
+        QueryEventPtr qev(new QueryEvent(
+                              *msg_mgr_, 0, qryctx_creator_->create(),
+                              boost::bind(&DispatcherImpl::restartQuery,
+                                          this, _1)));
         outstanding_.push_back(qev);
     }
 
@@ -199,11 +212,15 @@ Dispatcher::DispatcherImpl::responseCallback(
     response_.parseHeader(buffer);
     // TODO: catch exception due to bogus response
 
+    restartQuery(response_.getQid());
+}
+
+void
+Dispatcher::DispatcherImpl::restartQuery(qid_t qid) {
     // Identify the matching query from the outstanding queue.
     const list<shared_ptr<QueryEvent> >::iterator qev_it =
         find_if(outstanding_.begin(), outstanding_.end(),
-                boost::bind(&QueryEvent::matchResponse, _1,
-                            response_.getQid()));
+                boost::bind(&QueryEvent::matchResponse, _1, qid));
     if (qev_it != outstanding_.end()) {
         // TODO: let the context check the response further
 

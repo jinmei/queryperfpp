@@ -28,13 +28,14 @@
 using namespace std;
 using asio::io_service;
 using asio::ip::udp;
+using asio::ip::tcp;
 using boost::lexical_cast;
 
 namespace Queryperf {
 
 class UDPMessageSocket : public ASIOMessageSocket {
 public:
-    UDPMessageSocket(io_service& io_service, const std::string& address,
+    UDPMessageSocket(io_service& io_service, const string& address,
                      uint16_t port, Callback callback);
     virtual void send(const void* data, size_t datalen);
 
@@ -99,6 +100,34 @@ UDPMessageSocket::handleRead(const asio::error_code& ec, size_t length) {
                                          this, _1, _2));
 }
 
+class TCPMessageSocket : public ASIOMessageSocket {
+public:
+    TCPMessageSocket(io_service& io_service, const string& address,
+                     uint16_t port, Callback callback);
+    virtual void send(const void* data, size_t datalen);
+
+    virtual int native() { return (asio_sock_.native()); }
+
+private:
+    tcp::socket asio_sock_;
+    tcp::endpoint dest_;
+    Callback callback_;
+    uint8_t recvbuf_[4096];
+};
+
+TCPMessageSocket::TCPMessageSocket(io_service& io_service,
+                                   const string& address, uint16_t port,
+                                   Callback callback) :
+    asio_sock_(io_service),
+    dest_(asio::ip::address::from_string(address), port), callback_(callback)
+{
+    // Note: we don't even open the socket yet.
+}
+
+void
+TCPMessageSocket::send(const void* /*data*/, size_t /*datalen*/) {
+}
+
 struct ASIOMessageManager::ASIOMessageManagerImpl {
     io_service io_service_;
 };
@@ -121,6 +150,9 @@ ASIOMessageManager::createMessageSocket(int proto, const string& address,
     }
     if (proto == IPPROTO_UDP) {
         return (new UDPMessageSocket(impl_->io_service_, address, port,
+                                     callback));
+    } else if (proto == IPPROTO_TCP) {
+        return (new TCPMessageSocket(impl_->io_service_, address, port,
                                      callback));
     }
     throw MessageSocketError("unsupported or invalid protocol: " +

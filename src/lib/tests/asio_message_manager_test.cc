@@ -258,7 +258,7 @@ TEST_F(ASIOMessageManagerTest, createMessageSocketIPv6) {
             asio_manager_.createMessageSocket(
                 IPPROTO_UDP, "::1", 5300, noopSocketCallback)));
     ASSERT_TRUE(sock);
-    const int s =  sock->native();
+    const int s =  sock->native(); // note: this doesn't have to be closed
     EXPECT_NE(-1, s);
 
     // The socket should be already bound (and connected)
@@ -269,6 +269,16 @@ TEST_F(ASIOMessageManagerTest, createMessageSocketIPv6) {
                                   static_cast<void*>(&sin6)),
                               &salen));
     EXPECT_NE(0, sin6.sin6_port);
+}
+
+TEST_F(ASIOMessageManagerTest, createMessageSocketTCPIPv6) {
+    scoped_ptr<ASIOMessageSocket> sock(
+        dynamic_cast<ASIOMessageSocket*>(
+            asio_manager_.createMessageSocket(
+                IPPROTO_TCP, "::1", 5300, noopSocketCallback)));
+    ASSERT_TRUE(sock);
+    // In the case of TCP, the underlying socket is not open until send()
+    EXPECT_EQ(-1, sock->native());
 }
 
 TEST_F(ASIOMessageManagerTest, createMessageSocketIPv4) {
@@ -296,10 +306,20 @@ TEST_F(ASIOMessageManagerTest, createMessageSocketIPv4) {
     EXPECT_NE(0, sin4.sin_port);
 }
 
+TEST_F(ASIOMessageManagerTest, createMessageSocketTCPIPv4) {
+    scoped_ptr<ASIOMessageSocket> sock(
+        dynamic_cast<ASIOMessageSocket*>(
+            asio_manager_.createMessageSocket(
+                IPPROTO_TCP, "127.0.0.1", 5304, noopSocketCallback)));
+    ASSERT_TRUE(sock);
+    // In the case of TCP, the underlying socket is not open until send()
+    EXPECT_EQ(-1, sock->native());
+}
+
 TEST_F(ASIOMessageManagerTest, createMessageSocketBadParam) {
-    // TCP is not (yet) supported
+    // Unspecified protocol (assuming it's neither UDP or TCP)
     EXPECT_THROW(asio_manager_.createMessageSocket(
-                     IPPROTO_TCP, "::1", 5300, noopSocketCallback),
+                     0, "::1", 5300, noopSocketCallback),
                  MessageSocketError);
 
     // Bad address

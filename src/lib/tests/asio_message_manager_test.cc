@@ -213,7 +213,7 @@ protected:
     // and it's a TCP socket, it will also start listening to new connection
     // requests.
     int createSocket(int family, int type, int protocol,
-                     const SockAddrInfo& sainfo, bool do_listen = false)
+                     const SockAddrInfo& sainfo, bool do_listen = true)
     {
         int s = socket(family, type, protocol);
         if (s < 0) {
@@ -238,8 +238,10 @@ protected:
         return (s);
     }
 
-    void sendCheck(int recv_fd, const string& addr, uint16_t port,
-                   MessageSocket::Callback callback);
+    void sendUDPCheck(int recv_fd, const string& addr, uint16_t port,
+                      MessageSocket::Callback callback);
+    void sendTCPCheck(int recv_fd, const string& addr, uint16_t port,
+                      MessageSocket::Callback callback);
 
     size_t sendcallback_called_;
     size_t timercallback_called_;
@@ -334,10 +336,10 @@ TEST_F(ASIOMessageManagerTest, createMessageSocketBadParam) {
 }
 
 void
-ASIOMessageManagerTest::sendCheck(int recv_fd, const string& addr,
-                                  uint16_t port,
-                                  MessageSocket::Callback callback =
-                                  noopSocketCallback)
+ASIOMessageManagerTest::sendUDPCheck(int recv_fd, const string& addr,
+                                     uint16_t port,
+                                     MessageSocket::Callback callback =
+                                     noopSocketCallback)
 {
     // Create a socket on the manager if not created
     if (!test_sock_) {
@@ -364,22 +366,67 @@ ASIOMessageManagerTest::sendCheck(int recv_fd, const string& addr,
                      convertSockAddr(&ss), sa_len));
 }
 
-TEST_F(ASIOMessageManagerTest, send) {
+TEST_F(ASIOMessageManagerTest, sendUDP) {
     ScopedSocket recv_s(createSocket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP,
                                      getSockAddr("::1", "5306")));
-    sendCheck(recv_s.fd, "::1", 5306);
+    sendUDPCheck(recv_s.fd, "::1", 5306);
 
     test_sock_.reset(NULL);
     recv_s.reset(createSocket(AF_INET, SOCK_DGRAM, IPPROTO_UDP,
                               getSockAddr("127.0.0.1", "5304")));
-    sendCheck(recv_s.fd, "127.0.0.1", 5304);
+    sendUDPCheck(recv_s.fd, "127.0.0.1", 5304);
+}
+
+void
+ASIOMessageManagerTest::sendTCPCheck(int listen_fd, const string& addr,
+                                     uint16_t port,
+                                     MessageSocket::Callback callback =
+                                     noopSocketCallback)
+{
+    // Create a socket on the manager if not created
+    if (!test_sock_) {
+        test_sock_.reset(asio_manager_.createMessageSocket(
+                             IPPROTO_TCP, addr, port, callback));
+    }
+
+    // Send data from the first socket, and receive on the second one.
+    test_sock_->send(TEST_DATA, sizeof(TEST_DATA));
+    ++send_done_;
+
+    // Accept the connection
+    sockaddr_storage ss;
+    socklen_t sa_len = sizeof(ss);
+    const ScopedSocket accept_s(accept(listen_fd, convertSockAddr(&ss),
+                                       &sa_len));
+    ASSERT_NE(-1, accept_s.fd);
+
+    asio_manager_.run();
+
+    // First two octets store the message length
+    char recvbuf[sizeof(TEST_DATA)];
+    ASSERT_GE(sizeof(recvbuf), 2);
+    EXPECT_EQ(2, recv(accept_s.fd, recvbuf, 2, MSG_WAITALL));
+    const uint16_t msglen = recvbuf[0] * 256 + recvbuf[1];
+    EXPECT_EQ(sizeof(TEST_DATA), msglen);
+
+    // Then the following real data and check it.
+    EXPECT_EQ(sizeof(TEST_DATA), recv(accept_s.fd, recvbuf, sizeof(recvbuf),
+                                      MSG_WAITALL));
+    EXPECT_STREQ(TEST_DATA, recvbuf);
+}
+
+// Note: this test could block if the tested code has a bug.
+TEST_F(ASIOMessageManagerTest, sendTCP) {
+    ScopedSocket listen_s(createSocket(AF_INET6, SOCK_STREAM, IPPROTO_TCP,
+                                       getSockAddr("::1", "5306")));
+    sendTCPCheck(listen_s.fd, "::1", 5306);
 }
 
 TEST_F(ASIOMessageManagerTest, sendCallbackIPv6) {
     ScopedSocket recv_s(createSocket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP,
                                      getSockAddr("::1", "5306")));
     EXPECT_EQ(0, sendcallback_called_);
-    sendCheck(recv_s.fd, "::1", 5306,
+    sendUDPCheck(recv_s.fd, "::1", 5306,
               boost::bind(&ASIOMessageManagerTest::sendCallback, this,
                           _1));
     EXPECT_EQ(0, sendcallback_called_); // callback still shouldn't be called
@@ -392,7 +439,7 @@ TEST_F(ASIOMessageManagerTest, sendCallbackIPv4) {
     ScopedSocket recv_s(createSocket(AF_INET, SOCK_DGRAM, IPPROTO_UDP,
                                      getSockAddr("127.0.0.1", "5304")));
     EXPECT_EQ(0, sendcallback_called_);
-    sendCheck(recv_s.fd, "127.0.0.1", 5304,
+    sendUDPCheck(recv_s.fd, "127.0.0.1", 5304,
               boost::bind(&ASIOMessageManagerTest::sendCallback, this,
                           _1));
     EXPECT_EQ(0, sendcallback_called_);
@@ -404,12 +451,10 @@ TEST_F(ASIOMessageManagerTest, multipleSends) {
     ScopedSocket recv_s(createSocket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP,
                                      getSockAddr("::1", "5306")));
     EXPECT_EQ(0, sendcallback_called_);
-    sendCheck(recv_s.fd, "::1", 5306,
-              boost::bind(&ASIOMessageManagerTest::sendCallback, this,
-                          _1));
-    sendCheck(recv_s.fd, "::1", 5306,
-              boost::bind(&ASIOMessageManagerTest::sendCallback, this,
-                          _1));
+    sendUDPCheck(recv_s.fd, "::1", 5306,
+                 boost::bind(&ASIOMessageManagerTest::sendCallback, this, _1));
+    sendUDPCheck(recv_s.fd, "::1", 5306,
+                 boost::bind(&ASIOMessageManagerTest::sendCallback, this, _1));
     asio_manager_.run();
     EXPECT_EQ(2, sendcallback_called_);
 }

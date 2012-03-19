@@ -17,6 +17,7 @@
 
 #include <asio.hpp>
 
+#include <boost/shared_array.hpp>
 #include <boost/bind.hpp>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 #include <boost/lexical_cast.hpp>
@@ -109,10 +110,16 @@ public:
     virtual int native() { return (asio_sock_.native()); }
 
 private:
+    void handleConnect(const asio::error_code& ec);
+    void handleWrite(const asio::error_code& ec, size_t length);
+
+private:
     tcp::socket asio_sock_;
     tcp::endpoint dest_;
     Callback callback_;
     uint8_t recvbuf_[4096];
+    uint8_t msglen_placeholder_[2];
+    boost::array<asio::const_buffer, 2> sendbufs_;
 };
 
 TCPMessageSocket::TCPMessageSocket(io_service& io_service,
@@ -125,7 +132,34 @@ TCPMessageSocket::TCPMessageSocket(io_service& io_service,
 }
 
 void
-TCPMessageSocket::send(const void* /*data*/, size_t /*datalen*/) {
+TCPMessageSocket::send(const void* data, size_t datalen) {
+    msglen_placeholder_[0] = datalen >> 8;
+    msglen_placeholder_[1] = (datalen & 0x00ff);
+    sendbufs_[0] = asio::buffer(msglen_placeholder_,
+                                sizeof(msglen_placeholder_));
+    sendbufs_[1] = asio::buffer(data, datalen);
+    asio_sock_.async_connect(dest_,
+                             boost::bind(&TCPMessageSocket::handleConnect,
+                                         this, _1));
+}
+
+void
+TCPMessageSocket::handleConnect(const asio::error_code& ec) {
+    if (ec) {
+        throw MessageSocketError("unexpected failure on socket connect: " +
+                                 ec.message());
+    }
+    asio::async_write(asio_sock_, sendbufs_,
+                      boost::bind(&TCPMessageSocket::handleWrite, this,
+                                  _1, _2));
+}
+
+void
+TCPMessageSocket::handleWrite(const asio::error_code& ec, size_t) {
+    if (ec) {
+        throw MessageSocketError("unexpected failure on socket write: " +
+                                 ec.message());
+    }
 }
 
 struct ASIOMessageManager::ASIOMessageManagerImpl {

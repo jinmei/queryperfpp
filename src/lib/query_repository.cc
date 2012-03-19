@@ -99,6 +99,8 @@ QueryRepository::QueryRepositoryImpl::readNextQuestion(bool rewind) {
                 if (rewind) {
                     input_.clear();
                     input_.seekg(0);
+                } else if (line.empty()) {
+                    return (QuestionPtr());
                 }
             } else if (input_.bad() || input_.fail()) {
                 throw QueryRepositoryError("unexpected failure in reading "
@@ -185,7 +187,7 @@ QueryRepository::getQueryCount() const {
 
 void
 QueryRepository::getNextQuery(Message& query_msg) {
-    QuestionPtr question = impl_->readNextQuestion(true);
+    QuestionPtr question = impl_->getNextQuestion();
 
     query_msg.clear(Message::RENDER);
     query_msg.setOpcode(Opcode::QUERY());

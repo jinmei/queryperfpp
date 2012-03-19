@@ -37,7 +37,7 @@ using boost::shared_ptr;
 namespace {
 void
 usage() {
-    cerr << "Usage: queryperf++ [-d datafile] [-n #threads]\n";
+    cerr << "Usage: queryperf++ [-d datafile] [-n #threads] [-L]\n";
     cerr << "                   [-s server_addr] [-p port] [-l limit]" << endl;
     exit(1);
 }
@@ -64,9 +64,10 @@ main(int argc, char* argv[]) {
     const char* time_limit_txt = NULL;
     const char* num_threads_txt = NULL;
     size_t num_threads = 1;
+    bool preload = false;
 
     int ch;
-    while ((ch = getopt(argc, argv, "d:l:n:p:s:")) != -1) {
+    while ((ch = getopt(argc, argv, "d:l:Ln:p:s:")) != -1) {
         switch (ch) {
         case 'd':
             data_file = optarg;
@@ -82,6 +83,9 @@ main(int argc, char* argv[]) {
             break;
         case 'l':
             time_limit_txt = optarg;
+            break;
+        case 'L':
+            preload = true;
             break;
         case '?':
         default :
@@ -101,7 +105,7 @@ main(int argc, char* argv[]) {
 
         // Prepare
         for (size_t i = 0; i < num_threads; ++i) {
-            DispatcherPtr disp(new Dispatcher(data_file));
+            DispatcherPtr disp(new Dispatcher(data_file, preload));
             if (server_address != NULL) {
                 disp->setServerAddress(server_address);
             }

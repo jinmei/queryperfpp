@@ -241,7 +241,7 @@ TEST_F(DispatcherTest, aueryTimer) {
 TEST_F(DispatcherTest, builtins) {
     // creating dispatcher with "builtin" support classes.  No disruption
     // should happen.
-    EXPECT_NO_THROW(Dispatcher disp("test-input.txt"));
+    EXPECT_NO_THROW(Dispatcher disp("test-input.txt", false));
 }
 
 TEST_F(DispatcherTest, serverAddress) {

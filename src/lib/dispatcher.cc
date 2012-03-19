@@ -93,7 +93,7 @@ struct Dispatcher::DispatcherImpl {
         initParams();
     }
 
-    DispatcherImpl(const string& data_file) :
+    DispatcherImpl(const string& data_file, bool preload) :
         qry_repo_local_(new QueryRepository(data_file)),
         msg_mgr_local_(new ASIOMessageManager),
         qryctx_creator_local_(new QueryContextCreator(*qry_repo_local_)),
@@ -102,6 +102,9 @@ struct Dispatcher::DispatcherImpl {
         response_(Message::PARSE)
     {
         initParams();
+        if (preload) {
+            qry_repo_local_->load();
+        }
     }
 
     void initParams() {
@@ -257,8 +260,8 @@ Dispatcher::Dispatcher(MessageManager& msg_mgr,
 
 const char* const Dispatcher::DEFAULT_SERVER = "::1";
 
-Dispatcher::Dispatcher(const string& data_file) :
-    impl_(new DispatcherImpl(data_file))
+Dispatcher::Dispatcher(const string& data_file, bool preload) :
+    impl_(new DispatcherImpl(data_file, preload))
 {
 }
 

@@ -65,7 +65,7 @@ public:
     Dispatcher(MessageManager& msg_mgr, QueryContextCreator& ctx_creator);
 
     /// \brief Constructor when using "builtin" classes.
-    Dispatcher(const std::string& data_file);
+    Dispatcher(const std::string& data_file, bool preload);
 
     /// Destructor.
     ~Dispatcher();

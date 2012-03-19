@@ -38,6 +38,14 @@ public:
     explicit QueryRepository(const std::string& input_file);
     ~QueryRepository();
 
+    /// \brief Preload all data and hold it internally.
+    void load();
+
+    /// \brief Return preloaded query count if preload took place.
+    ///
+    /// It returns 0 if preload hasn't been initiated.
+    size_t getQueryCount() const;
+
     void getNextQuery(isc::dns::Message& message);
 
 private:

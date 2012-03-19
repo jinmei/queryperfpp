@@ -28,6 +28,7 @@
 #include <fstream>
 #include <string>
 #include <map>
+#include <vector>
 
 using namespace std;
 using boost::scoped_ptr;
@@ -62,10 +63,92 @@ struct QueryRepository::QueryRepositoryImpl {
         aux_typemap_["ANY"] = "TYPE255";
     }
 
+    // Extract the next question from the input stream
+    QuestionPtr readNextQuestion(bool rewind);
+
+    // Return the next question, either from the preloaded vector (if done)
+    // or from the input stream.
+    QuestionPtr getNextQuestion();
+
     scoped_ptr<ifstream> input_ifs_;
     istream& input_;
     map<string, string> aux_typemap_;
+    vector<QuestionPtr> questions_; // used in the "preload" mode
+    vector<QuestionPtr>::const_iterator current_question_;
+    vector<QuestionPtr>::const_iterator end_question_;
 };
+
+QuestionPtr
+QueryRepository::QueryRepositoryImpl::readNextQuestion(bool rewind) {
+    QuestionPtr question;
+
+    if (!rewind && input_.eof()) {
+        return (QuestionPtr());
+    }
+
+    while (!question) {
+        string line;
+        size_t loop_count = 0;
+        while (line.empty()) {
+            if (loop_count++ == MAX_EMPTY_LOOP) {
+                throw QueryRepositoryError("failed to get input line too long,"
+                                           " possibly an empty input?");
+            }
+            getline(input_, line);
+            if (input_.eof()) {
+                if (rewind) {
+                    input_.clear();
+                    input_.seekg(0);
+                }
+            } else if (input_.bad() || input_.fail()) {
+                throw QueryRepositoryError("unexpected failure in reading "
+                                           "input data");
+            }
+            if (line[0] == ';') { // comment check (note it's safe to see [0])
+                line.clear();     // force ingoring this line.
+            }
+        }
+
+        stringstream ss(line);
+        string qname_text, qtype_text;
+        ss >> qname_text >> qtype_text;
+        if (ss.bad() || ss.fail() || !ss.eof()) {
+            // Ignore the line is organized in an unexpected way.
+            continue;
+        }
+        // Workaround for some RR types that are not recognized by BIND 10
+        map<string, string>::const_iterator it =
+            aux_typemap_.find(qtype_text);
+        if (it != aux_typemap_.end()) {
+            qtype_text = it->second;
+        }
+        try {
+            question.reset(new Question(Name(qname_text), RRClass::IN(),
+                                        RRType(qtype_text)));
+        } catch (const isc::Exception& ex) {
+            // The input data may contain bad string, which would trigger an
+            // exception.  We ignore them and continue reading until we find
+            // a valid one.
+            cerr << "Error parsing query (" << ex.what() << "): "
+                 << line << endl;
+        }
+    }
+
+    return (question);
+}
+
+QuestionPtr
+QueryRepository::QueryRepositoryImpl::getNextQuestion() {
+    if (!questions_.empty()) {
+        // queries have been preloaded.  get the next one from the vector.
+        QuestionPtr question = *current_question_;
+        if (++current_question_ == end_question_) {
+            current_question_ = questions_.begin();
+        }
+        return (question);
+    }
+    return (QuestionPtr());
+}
 
 QueryRepository::QueryRepository(istream& input) :
     impl_(new QueryRepositoryImpl(input))
@@ -86,54 +169,23 @@ QueryRepository::~QueryRepository() {
 }
 
 void
-QueryRepository::getNextQuery(Message& query_msg) {
+QueryRepository::load() {
     QuestionPtr question;
-
-    while (!question) {
-        string line;
-        size_t loop_count = 0;
-        while (line.empty()) {
-            if (loop_count++ == MAX_EMPTY_LOOP) {
-                throw QueryRepositoryError("failed to get input line too long,"
-                                           " possibly an empty input?");
-            }
-            getline(impl_->input_, line);
-            if (impl_->input_.eof()) {
-                impl_->input_.clear();
-                impl_->input_.seekg(0);
-            } else if (impl_->input_.bad() || impl_->input_.fail()) {
-                throw QueryRepositoryError("unexpected failure in reading "
-                                           "input data");
-            }
-            if (line[0] == ';') { // comment check (note it's safe to see [0])
-                line.clear();     // force ingoring this line.
-            }
-        }
-
-        stringstream ss(line);
-        string qname_text, qtype_text;
-        ss >> qname_text >> qtype_text;
-        if (ss.bad() || ss.fail() || !ss.eof()) {
-            // Ignore the line is organized in an unexpected way.
-            continue;
-        }
-        // Workaround for some RR types that are not recognized by BIND 10
-        map<string, string>::const_iterator it =
-            impl_->aux_typemap_.find(qtype_text);
-        if (it != impl_->aux_typemap_.end()) {
-            qtype_text = it->second;
-        }
-        try {
-            question.reset(new Question(Name(qname_text), RRClass::IN(),
-                                        RRType(qtype_text)));
-        } catch (const isc::Exception& ex) {
-            // The input data may contain bad string, which would trigger an
-            // exception.  We ignore them and continue reading until we find
-            // a valid one.
-            cerr << "Error parsing query (" << ex.what() << "): "
-                 << line << endl;
-        }
+    while ((question = impl_->readNextQuestion(false)) != NULL) {
+        impl_->questions_.push_back(question);
     }
+    impl_->current_question_ = impl_->questions_.begin();
+    impl_->end_question_ = impl_->questions_.end();
+}
+
+size_t
+QueryRepository::getQueryCount() const {
+    return (impl_->questions_.size());
+}
+
+void
+QueryRepository::getNextQuery(Message& query_msg) {
+    QuestionPtr question = impl_->readNextQuestion(true);
 
     query_msg.clear(Message::RENDER);
     query_msg.setOpcode(Opcode::QUERY());

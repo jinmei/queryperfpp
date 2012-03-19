@@ -149,7 +149,7 @@ QueryRepository::QueryRepositoryImpl::getNextQuestion() {
         }
         return (question);
     }
-    return (QuestionPtr());
+    return (readNextQuestion(true));
 }
 
 QueryRepository::QueryRepository(istream& input) :
@@ -175,6 +175,9 @@ QueryRepository::load() {
     QuestionPtr question;
     while ((question = impl_->readNextQuestion(false)) != NULL) {
         impl_->questions_.push_back(question);
+    }
+    if (impl_->questions_.empty()) {
+        throw QueryRepositoryError("failed to preload queries: empty input");
     }
     impl_->current_question_ = impl_->questions_.begin();
     impl_->end_question_ = impl_->questions_.end();

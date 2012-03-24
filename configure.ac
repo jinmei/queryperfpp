@@ -1,7 +1,7 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-AC_PREREQ([2.68])
+AC_PREREQ([2.59])
 AC_INIT(queryperfpp, 0.1, jinmei@wide.ad.jp)
 AC_CONFIG_SRCDIR(README)
 AM_INIT_AUTOMAKE

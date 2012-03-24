@@ -15,6 +15,7 @@
 #include <query_repository.h>
 
 #include <dns/name.h>
+#include <dns/edns.h>
 #include <dns/message.h>
 #include <dns/opcode.h>
 #include <dns/rcode.h>
@@ -57,6 +58,10 @@ struct QueryRepository::QueryRepositoryImpl {
     }
 
     void initialize() {
+        edns_.reset(new EDNS);
+        edns_->setUDPSize(4096);
+        edns_->setDNSSECAwareness(true);
+
         // BIND 10 libdns++ doesn't yet recognize all standardized RR type
         // menmonics.  To suppress noisy log and avoid ignoring query data
         // containing such RR types, we use a homebrew mapping table.
@@ -78,6 +83,7 @@ struct QueryRepository::QueryRepositoryImpl {
     istream& input_;
     map<string, string> aux_typemap_;
     vector<QuestionPtr> questions_; // used in the "preload" mode
+    EDNSPtr edns_;                  // template of common EDNS OPT RR
     vector<QuestionPtr>::const_iterator current_question_;
     vector<QuestionPtr>::const_iterator end_question_;
 };
@@ -206,11 +212,26 @@ QueryRepository::getNextQuery(Message& query_msg) {
     query_msg.setRcode(Rcode::NOERROR());
     query_msg.setHeaderFlag(Message::HEADERFLAG_RD);
     query_msg.addQuestion(question);
+    query_msg.setEDNS(impl_->edns_);
 }
 
 void
 QueryRepository::setQueryClass(RRClass qclass) {
+    if (!impl_->questions_.empty()) {
+        throw QueryRepositoryError("query class is being set after preload");
+    }
+
     impl_->qclass_ = qclass;
+}
+
+void
+QueryRepository::setDNSSEC(bool on) {
+    if (!impl_->questions_.empty()) {
+        throw QueryRepositoryError(
+            "DNSSEC DO bit is being changed after preload");
+    }
+
+    impl_->edns_->setDNSSECAwareness(on);
 }
 
 } // end of QueryPerf

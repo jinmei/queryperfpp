@@ -49,7 +49,17 @@ public:
 
     void getNextQuery(isc::dns::Message& message);
 
+    /// \brief Set the default RR class of the queries.
+    ///
+    /// When preload is used, this must be called before load().
+    ///
+    /// \param qclass The default RR class of the queries.
     void setQueryClass(isc::dns::RRClass qclass);
+
+    /// \brief Toggle the DNSSEC DO bit (in EDNS0 OPT RR) of the queries.
+    ///
+    /// \param on A boolean flag indicating whether to set the DO bit.
+    void setDNSSEC(bool on);
 
 private:
     struct QueryRepositoryImpl;

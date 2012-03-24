@@ -33,7 +33,7 @@ namespace unittest {
 void
 queryMessageCheck(const void* data, size_t data_len, qid_t expected_qid,
                   const Name& expected_qname, RRType expected_qtype,
-                  RRClass expected_qclass)
+                  bool expected_dnssec, RRClass expected_qclass)
 {
     EXPECT_NE(0, data_len);
     ASSERT_NE(static_cast<const void*>(NULL), data);
@@ -42,13 +42,13 @@ queryMessageCheck(const void* data, size_t data_len, qid_t expected_qid,
     InputBuffer buffer(data, data_len);
     msg.fromWire(buffer);
     queryMessageCheck(msg, expected_qid, expected_qname, expected_qtype,
-                      expected_qclass);
+                      expected_dnssec, expected_qclass);
 }
 
 void
 queryMessageCheck(const Message& msg, qid_t expected_qid,
                   const Name& expected_qname, RRType expected_qtype,
-                  RRClass expected_qclass)
+                  bool expected_dnssec, RRClass expected_qclass)
 {
     EXPECT_EQ(Opcode::QUERY(), msg.getOpcode());
     EXPECT_EQ(Rcode::NOERROR(), msg.getRcode());
@@ -63,12 +63,20 @@ queryMessageCheck(const Message& msg, qid_t expected_qid,
     EXPECT_EQ(1, msg.getRRCount(Message::SECTION_QUESTION));
     EXPECT_EQ(0, msg.getRRCount(Message::SECTION_ANSWER));
     EXPECT_EQ(0, msg.getRRCount(Message::SECTION_AUTHORITY));
+    // Note: getRRCount doesn't take into account EDNS in this context
     EXPECT_EQ(0, msg.getRRCount(Message::SECTION_ADDITIONAL));
     QuestionIterator qit = msg.beginQuestion();
     ASSERT_FALSE(qit == msg.endQuestion());
     EXPECT_EQ(expected_qname, (*qit)->getName());
     EXPECT_EQ(expected_qtype, (*qit)->getType());
     EXPECT_EQ(expected_qclass, (*qit)->getClass());
+
+    if (expected_dnssec) {
+        ASSERT_TRUE(msg.getEDNS());
+        EXPECT_TRUE(msg.getEDNS()->getDNSSECAwareness());
+    } else if (msg.getEDNS()) {
+        EXPECT_FALSE(msg.getEDNS()->getDNSSECAwareness());
+    }
 }
 } // end of unittest
 } // end of Queryperf

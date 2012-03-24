@@ -71,7 +71,7 @@ public:
     /// \brief Constructor when using "builtin" classes with input stream.
     Dispatcher(std::istream& input_stream);
 
-    /// Destructor.
+    /// \brief Destructor.
     ~Dispatcher();
 
     /// \brief Preload queries.
@@ -95,6 +95,14 @@ public:
     ///
     /// This must be called before run().
     void setDefaultQueryClass(const std::string& qclass_txt);
+
+    /// \brief Toggle whether to set the EDNS0 DO bit.
+    ///
+    /// Note that if the bit is to be set (when \c on is true), it implies
+    /// EDNS0 OPT RR will be included in queries by default.
+    ///
+    /// This method must be called before run().
+    void setDNSSEC(bool on);
 
     /// \brief Return the number of queries sent from the dispatcher.
     size_t getQueriesSent() const;

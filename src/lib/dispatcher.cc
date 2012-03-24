@@ -324,6 +324,17 @@ Dispatcher::setDefaultQueryClass(const std::string& qclass_txt) {
 }
 
 void
+Dispatcher::setDNSSEC(bool on) {
+    // DNSSEC bit can be set (via the dispatcher) only for the internal
+    // repository.
+    if (!impl_->qry_repo_local_) {
+        throw DispatcherError("DNSSEC DO bit is being set/reset "
+                              "for external repository");
+    }
+    impl_->qry_repo_local_->setDNSSEC(on);
+}
+
+void
 Dispatcher::run() {
     assert(impl_->udp_socket_ == NULL);
     impl_->run();

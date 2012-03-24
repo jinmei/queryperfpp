@@ -282,6 +282,17 @@ TEST_F(DispatcherTest, setQclassAfterRun) {
     EXPECT_THROW(disp.setDefaultQueryClass("CH"), DispatcherError);
 }
 
+TEST_F(DispatcherTest, setDNSSEC) {
+    Dispatcher disp("test-input.txt");
+    disp.setDNSSEC(false);      // this shouldn't cause disruption
+    EXPECT_THROW(disp.run(), MessageSocketError);
+    disp.setDNSSEC(true);
+}
+
+TEST_F(DispatcherTest, setDNSSECForExternalRepository) {
+    EXPECT_THROW(disp.setDNSSEC(false), DispatcherError);
+}
+
 TEST_F(DispatcherTest, serverAddress) {
     // Default server address
     EXPECT_EQ("::1", disp.getServerAddress());

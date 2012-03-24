@@ -226,6 +226,22 @@ AC_SUBST(ASIO_INCLUDES)
 # Checks for header files.
 
 # Checks for typedefs, structures, and compiler characteristics.
+
+werror_ok=0
+# Certain versions of gcc (g++) have a bug that incorrectly warns about
+# the use of anonymous name spaces even if they're closed in a single
+# translation unit.  For these versions we have to disable -Werror.
+CXXFLAGS_SAVED="$CXXFLAGS"
+CXXFLAGS="$CXXFLAGS -Werror"
+AC_MSG_CHECKING(for in-TU anonymous namespace breakage)
+AC_TRY_COMPILE([namespace { class Foo {}; }
+namespace isc {class Bar {Foo foo_;};} ],,
+	[AC_MSG_RESULT(no)
+	 werror_ok=1
+	 CXX_WERROR_FLAGS="-Werror"],
+	[AC_MSG_RESULT(yes)])
+CXXFLAGS="$CXXFLAGS_SAVED $CXX_WERROR_FLAGS"
+
 if test "X$GXX" = "Xyes"; then
 CXXFLAGS="$CXXFLAGS -Werror -Wall -Wextra -Wwrite-strings -Woverloaded-virtual -Wno-sign-compare"
 fi

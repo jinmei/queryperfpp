@@ -243,7 +243,7 @@ namespace isc {class Bar {Foo foo_;};} ],,
 CXXFLAGS="$CXXFLAGS_SAVED $CXX_WERROR_FLAGS"
 
 if test "X$GXX" = "Xyes"; then
-CXXFLAGS="$CXXFLAGS -Werror -Wall -Wextra -Wwrite-strings -Woverloaded-virtual -Wno-sign-compare"
+CXXFLAGS="$CXXFLAGS -Wall -Wextra -Wwrite-strings -Woverloaded-virtual -Wno-sign-compare"
 fi
 
 # Checks for library functions.

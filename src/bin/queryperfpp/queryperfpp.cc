@@ -18,7 +18,9 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/shared_ptr.hpp>
 
+#include <cassert>
 #include <cstring>
+#include <sstream>
 #include <iostream>
 #include <vector>
 #include <stdexcept>
@@ -37,9 +39,14 @@ using boost::shared_ptr;
 namespace {
 void
 usage() {
-    cerr << "Usage: queryperf++ [-C qclass] [-d datafile] [-n #threads]\n";
-    cerr << "                   [-L] [-s server_addr] [-p port] [-l limit]\n";
-    cerr << "  -C specifies default query class (default: \"IN\")";
+    const string usage_head = "Usage: queryperf++ ";
+    const string indent(usage_head.size(), ' ');
+    cerr << usage_head
+         << "[-C qclass] [-d datafile] [-l limit] [-L] [-n #threads]\n";
+    cerr << indent
+         << "[-s server_addr] [-p port] [-Q query_sequence]\n";
+    cerr << "  -C specifies default query class (default: \"IN\")\n";
+    cerr << "  -Q specifies NL-separated query data in command line (default: unuspecified)";
     cerr << endl;
     exit(1);
 }
@@ -56,6 +63,7 @@ runQueryperf(void* arg) {
 }
 
 typedef shared_ptr<Dispatcher> DispatcherPtr;
+typedef shared_ptr<stringstream> SStreamPtr;
 }
 
 int
@@ -66,11 +74,12 @@ main(int argc, char* argv[]) {
     const char* server_port_txt = NULL;
     const char* time_limit_txt = NULL;
     const char* num_threads_txt = NULL;
+    const char* query_txt = NULL;
     size_t num_threads = 1;
     bool preload = false;
 
     int ch;
-    while ((ch = getopt(argc, argv, "C:d:hl:Ln:p:s:")) != -1) {
+    while ((ch = getopt(argc, argv, "C:d:hl:Ln:p:Q:s:")) != -1) {
         switch (ch) {
         case 'C':
             qclass_txt = optarg;
@@ -87,6 +96,9 @@ main(int argc, char* argv[]) {
         case 'p':
             server_port_txt = optarg;
             break;
+        case 'Q':
+            query_txt = optarg;
+            break;
         case 'l':
             time_limit_txt = optarg;
             break;
@@ -99,20 +111,35 @@ main(int argc, char* argv[]) {
             usage();
         }
     }
-    if (data_file == NULL) {
-        cerr << "data file must be explicitly specified by -d for now" << endl;
-        exit(1);
+    if (data_file == NULL && query_txt == NULL) {
+        cerr << "Either data file (via -d) or query data must specified"
+             << endl;
+        return (1);
+    }
+    if (data_file != NULL && query_txt != NULL) {
+        cerr << "-d and -Q cannot be specified at the same time" << endl;
+        return (1);
     }
 
     try {
         vector<DispatcherPtr> dispatchers;
+        vector<SStreamPtr> input_streams;
         if (num_threads_txt != NULL) {
             num_threads = lexical_cast<size_t>(num_threads_txt);
         }
 
         // Prepare
         for (size_t i = 0; i < num_threads; ++i) {
-            DispatcherPtr disp(new Dispatcher(data_file));
+            DispatcherPtr disp;
+            if (data_file != NULL) {
+                disp.reset(new Dispatcher(data_file));
+            } else {
+                assert(query_txt != NULL);
+                cout << query_txt << endl;
+                SStreamPtr ss(new stringstream(query_txt));
+                disp.reset(new Dispatcher(*ss));
+                input_streams.push_back(ss);
+            }
             if (server_address != NULL) {
                 disp->setServerAddress(server_address);
             }

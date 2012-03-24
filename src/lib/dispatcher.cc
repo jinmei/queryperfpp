@@ -32,6 +32,7 @@
 #include <boost/foreach.hpp>
 
 #include <algorithm>
+#include <istream>
 #include <cassert>
 #include <list>
 
@@ -97,6 +98,17 @@ struct Dispatcher::DispatcherImpl {
 
     DispatcherImpl(const string& data_file) :
         qry_repo_local_(new QueryRepository(data_file)),
+        msg_mgr_local_(new ASIOMessageManager),
+        qryctx_creator_local_(new QueryContextCreator(*qry_repo_local_)),
+        msg_mgr_(msg_mgr_local_.get()),
+        qryctx_creator_(qryctx_creator_local_.get()),
+        response_(Message::PARSE)
+    {
+        initParams();
+    }
+
+    DispatcherImpl(istream& input_stream) :
+        qry_repo_local_(new QueryRepository(input_stream)),
         msg_mgr_local_(new ASIOMessageManager),
         qryctx_creator_local_(new QueryContextCreator(*qry_repo_local_)),
         msg_mgr_(msg_mgr_local_.get()),
@@ -261,6 +273,11 @@ const char* const Dispatcher::DEFAULT_SERVER = "::1";
 
 Dispatcher::Dispatcher(const string& data_file) :
     impl_(new DispatcherImpl(data_file))
+{
+}
+
+Dispatcher::Dispatcher(istream& input_stream) :
+    impl_(new DispatcherImpl(input_stream))
 {
 }
 

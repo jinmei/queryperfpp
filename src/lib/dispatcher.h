@@ -21,6 +21,7 @@
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 
 #include <stdexcept>
+#include <istream>
 
 #include <sys/types.h>
 #include <stdint.h>
@@ -64,8 +65,11 @@ public:
     /// events.
     Dispatcher(MessageManager& msg_mgr, QueryContextCreator& ctx_creator);
 
-    /// \brief Constructor when using "builtin" classes.
+    /// \brief Constructor when using "builtin" classes with input file name.
     Dispatcher(const std::string& data_file);
+
+    /// \brief Constructor when using "builtin" classes with input stream.
+    Dispatcher(std::istream& input_stream);
 
     /// Destructor.
     ~Dispatcher();

@@ -112,12 +112,14 @@ public:
 private:
     void handleConnect(const asio::error_code& ec);
     void handleWrite(const asio::error_code& ec, size_t length);
+    void handleReadLength(const asio::error_code& ec, size_t length);
+    void handleReadData(const asio::error_code& ec, size_t length);
 
 private:
     tcp::socket asio_sock_;
     tcp::endpoint dest_;
     Callback callback_;
-    uint8_t recvbuf_[4096];
+    uint8_t recvbuf_[65535];
     uint8_t msglen_placeholder_[2];
     boost::array<asio::const_buffer, 2> sendbufs_;
 };
@@ -160,6 +162,38 @@ TCPMessageSocket::handleWrite(const asio::error_code& ec, size_t) {
         throw MessageSocketError("unexpected failure on socket write: " +
                                  ec.message());
     }
+    asio_sock_.async_receive(asio::buffer(msglen_placeholder_,
+                                          sizeof(msglen_placeholder_)),
+                             boost::bind(&TCPMessageSocket::handleReadLength,
+                                         this, _1, _2));
+}
+
+void
+TCPMessageSocket::handleReadLength(const asio::error_code& ec, size_t length) {
+    if (ec) {
+        throw MessageSocketError("unexpected failure on socket read: " +
+                                 ec.message());
+    }
+    if (length != sizeof(msglen_placeholder_)) {
+        throw MessageSocketError("received unexpected size of data for "
+                                 "msglen: " + lexical_cast<string>(length));
+    }
+    const uint16_t msglen = msglen_placeholder_[0] * 256 +
+        msglen_placeholder_[1];
+    assert(sizeof(recvbuf_) >= msglen);
+    asio_sock_.async_receive(asio::buffer(recvbuf_, msglen),
+                             boost::bind(&TCPMessageSocket::handleReadData,
+                                         this, _1, _2));
+}
+
+void
+TCPMessageSocket::handleReadData(const asio::error_code& ec, size_t length) {
+    if (ec) {
+        throw MessageSocketError("unexpected failure on TCP socket read: " +
+                                 ec.message());
+    }
+    callback_(Event(recvbuf_, length));
+    // Unlike the UDP case, we don't continue read unless requested later.
 }
 
 struct ASIOMessageManager::ASIOMessageManagerImpl {

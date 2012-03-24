@@ -28,6 +28,7 @@ queryMessageCheck(const void* data, size_t data_len,
                   isc::dns::qid_t expected_qid,
                   const isc::dns::Name& expected_qname,
                   isc::dns::RRType expected_qtype,
+                  bool expected_edns = true,
                   bool expected_dnssec = true,
                   isc::dns::RRClass expected_qclass = isc::dns::RRClass::IN());
 
@@ -35,6 +36,7 @@ void
 queryMessageCheck(const isc::dns::Message& msg, isc::dns::qid_t expected_qid,
                   const isc::dns::Name& expected_qname,
                   isc::dns::RRType expected_qtype,
+                  bool expected_edns = true,
                   bool expected_dnssec = true,
                   isc::dns::RRClass expected_qclass = isc::dns::RRClass::IN());
 } // end of unittest

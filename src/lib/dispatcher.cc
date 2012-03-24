@@ -325,6 +325,10 @@ Dispatcher::setDefaultQueryClass(const std::string& qclass_txt) {
 
 void
 Dispatcher::setDNSSEC(bool on) {
+    // This must be set before running tests.
+    if (!impl_->start_time_.is_special()) {
+        throw DispatcherError("DNSSEC DO bit is being set/reset after run");
+    }
     // DNSSEC bit can be set (via the dispatcher) only for the internal
     // repository.
     if (!impl_->qry_repo_local_) {
@@ -332,6 +336,21 @@ Dispatcher::setDNSSEC(bool on) {
                               "for external repository");
     }
     impl_->qry_repo_local_->setDNSSEC(on);
+}
+
+void
+Dispatcher::setEDNS(bool on) {
+    // This must be set before running tests.
+    if (!impl_->start_time_.is_special()) {
+        throw DispatcherError("EDNS flag is being set/reset after run");
+    }
+    // EDNS flag can be set (via the dispatcher) only for the internal
+    // repository.
+    if (!impl_->qry_repo_local_) {
+        throw DispatcherError("EDNS flag bit is being set/reset "
+                              "for external repository");
+    }
+    impl_->qry_repo_local_->setEDNS(on);
 }
 
 void

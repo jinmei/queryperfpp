@@ -61,6 +61,16 @@ public:
     /// \param on A boolean flag indicating whether to set the DO bit.
     void setDNSSEC(bool on);
 
+    /// \brief Toggle whether to include EDNS0 in queries.
+    ///
+    /// Note that in order to suppress EDNS0 completely, the DNSSEC DO bit
+    /// must not be expected to be set.  So, in practice, if this method
+    /// is called with \c false, \c setDNSSEC() would also have to be called
+    /// with \c false.
+    ///
+    /// \param on A boolean flag indicating whether to include EDNS0.
+    void setEDNS(bool on);
+
 private:
     struct QueryRepositoryImpl;
     QueryRepositoryImpl* impl_;

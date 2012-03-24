@@ -58,6 +58,9 @@ struct QueryRepository::QueryRepositoryImpl {
     }
 
     void initialize() {
+        use_dnssec_ = true;
+        use_edns_ = true;
+
         edns_.reset(new EDNS);
         edns_->setUDPSize(4096);
         edns_->setDNSSECAwareness(true);
@@ -83,6 +86,10 @@ struct QueryRepository::QueryRepositoryImpl {
     istream& input_;
     map<string, string> aux_typemap_;
     vector<QuestionPtr> questions_; // used in the "preload" mode
+    bool use_edns_;                 // whether to include ENDS by default.
+    bool use_dnssec_;               // whether to set EDNS DO bit by default.
+                                    // EDNS will be included regardless of
+                                    // use_edns_.
     EDNSPtr edns_;                  // template of common EDNS OPT RR
     vector<QuestionPtr>::const_iterator current_question_;
     vector<QuestionPtr>::const_iterator end_question_;
@@ -212,7 +219,9 @@ QueryRepository::getNextQuery(Message& query_msg) {
     query_msg.setRcode(Rcode::NOERROR());
     query_msg.setHeaderFlag(Message::HEADERFLAG_RD);
     query_msg.addQuestion(question);
-    query_msg.setEDNS(impl_->edns_);
+    if (impl_->use_edns_ || impl_->use_dnssec_) {
+        query_msg.setEDNS(impl_->edns_);
+    }
 }
 
 void
@@ -231,7 +240,17 @@ QueryRepository::setDNSSEC(bool on) {
             "DNSSEC DO bit is being changed after preload");
     }
 
+    impl_->use_dnssec_ = on;
     impl_->edns_->setDNSSECAwareness(on);
+}
+
+void
+QueryRepository::setEDNS(bool on) {
+    if (!impl_->questions_.empty()) {
+        throw QueryRepositoryError("EDNS flag is being changed after preload");
+    }
+
+    impl_->use_edns_ = on;
 }
 
 } // end of QueryPerf

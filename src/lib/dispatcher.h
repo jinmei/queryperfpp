@@ -104,6 +104,14 @@ public:
     /// This method must be called before run().
     void setDNSSEC(bool on);
 
+    /// \brief Toggle whether to include EDNS0 in queries.
+    ///
+    /// Note that even if this is set to false EDNS0 will be used unless
+    /// DNSSEC is also disabled by \c setDNSSEC().
+    ///
+    /// This method must be called before run().
+    void setEDNS(bool on);
+
     /// \brief Return the number of queries sent from the dispatcher.
     size_t getQueriesSent() const;
 

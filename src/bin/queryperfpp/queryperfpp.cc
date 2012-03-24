@@ -42,11 +42,14 @@ usage() {
     const string usage_head = "Usage: queryperf++ ";
     const string indent(usage_head.size(), ' ');
     cerr << usage_head
-         << "[-C qclass] [-d datafile] [-D on|off] [-l limit] [-L]\n";
+         << "[-C qclass] [-d datafile] [-D on|off] [-e on|off] [-l limit]\n";
     cerr << indent
-         << "[-n #threads] [-s server_addr] [-p port] [-Q query_sequence]\n";
+         << "[-L] [-n #threads] [-s server_addr] [-p port]\n";
+    cerr << indent
+         << "[-Q query_sequence]\n";
     cerr << "  -C specifies default query class (default: \"IN\")\n";
     cerr << "  -D specifies whether to set EDNS DO bit (default: \"on\")\n";
+    cerr << "  -e specifies whether to include EDNS (default: \"on\")\n";
     cerr << "  -Q specifies NL-separated query data in command line (default: unuspecified)";
     cerr << endl;
     exit(1);
@@ -64,10 +67,29 @@ runQueryperf(void* arg) {
 }
 
 const bool DEFAULT_DNSSEC = true; // set EDNS DO bit by default
+const bool DEFAULT_EDNS = true; // set EDNS0 OPT RR by default
 const char* const DEFAULT_DATA_FILE = "-"; // stdin
 
 typedef shared_ptr<Dispatcher> DispatcherPtr;
 typedef shared_ptr<stringstream> SStreamPtr;
+
+bool
+parseOnOffFlag(const char* optname, const char* const optarg,
+               bool default_val)
+{
+    if (optarg != NULL) {
+        if (string(optarg) == "on") {
+            return (true);
+        } else if (string(optarg) == "off") {
+            return (false);
+        } else {
+            cerr << "Option argument of "<< optname
+                 << " must be 'on' or 'off'" << endl;
+            exit(1);
+        }
+    }
+    return (default_val);
+}
 }
 
 int
@@ -75,6 +97,7 @@ main(int argc, char* argv[]) {
     const char* qclass_txt = NULL;
     const char* data_file = NULL;
     const char* dnssec_flag_txt = NULL;
+    const char* edns_flag_txt = NULL;
     const char* server_address = NULL;
     const char* server_port_txt = NULL;
     const char* time_limit_txt = NULL;
@@ -84,7 +107,7 @@ main(int argc, char* argv[]) {
     bool preload = false;
 
     int ch;
-    while ((ch = getopt(argc, argv, "C:d:D:hl:Ln:p:Q:s:")) != -1) {
+    while ((ch = getopt(argc, argv, "C:d:D:e:hl:Ln:p:Q:s:")) != -1) {
         switch (ch) {
         case 'C':
             qclass_txt = optarg;
@@ -94,6 +117,9 @@ main(int argc, char* argv[]) {
             break;
         case 'D':
             dnssec_flag_txt = optarg;
+            break;
+        case 'e':
+            edns_flag_txt = optarg;
             break;
         case 'n':
             num_threads_txt = optarg;
@@ -126,16 +152,12 @@ main(int argc, char* argv[]) {
         cerr << "-d and -Q cannot be specified at the same time" << endl;
         return (1);
     }
-    bool dnssec_flag = DEFAULT_DNSSEC;
-    if (dnssec_flag_txt) {
-        if (string(dnssec_flag_txt) == "on") {
-            dnssec_flag = true;
-        } else if (string(dnssec_flag_txt) == "off") {
-            dnssec_flag = false;
-        } else {
-            cerr << "Option argument of -D must be 'on' or 'off'" << endl;
-            return (1);
-        }
+    const bool dnssec_flag = parseOnOffFlag("-D", dnssec_flag_txt,
+                                            DEFAULT_DNSSEC);
+    const bool edns_flag = parseOnOffFlag("-e", edns_flag_txt, DEFAULT_EDNS);
+    if (!edns_flag && dnssec_flag) {
+        cerr << "[WARN] EDNS is disabled but DNSSEC is enabled; "
+             << "EDNS will still be included." << endl;
     }
 
     try {
@@ -174,6 +196,7 @@ main(int argc, char* argv[]) {
                 disp->setDefaultQueryClass(qclass_txt);
             }
             disp->setDNSSEC(dnssec_flag);
+            disp->setEDNS(edns_flag);
             if (preload) {
                 disp->loadQueries();
             }

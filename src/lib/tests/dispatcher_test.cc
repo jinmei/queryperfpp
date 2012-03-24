@@ -286,11 +286,24 @@ TEST_F(DispatcherTest, setDNSSEC) {
     Dispatcher disp("test-input.txt");
     disp.setDNSSEC(false);      // this shouldn't cause disruption
     EXPECT_THROW(disp.run(), MessageSocketError);
-    disp.setDNSSEC(true);
+    // this can be set only before running the test.
+    EXPECT_THROW(disp.setDNSSEC(true), DispatcherError);
 }
 
 TEST_F(DispatcherTest, setDNSSECForExternalRepository) {
     EXPECT_THROW(disp.setDNSSEC(false), DispatcherError);
+}
+
+TEST_F(DispatcherTest, setEDNS) {
+    Dispatcher disp("test-input.txt");
+    disp.setEDNS(false);      // this shouldn't cause disruption
+    EXPECT_THROW(disp.run(), MessageSocketError);
+    // this can be set only before running the test.
+    EXPECT_THROW(disp.setEDNS(true), DispatcherError);
+}
+
+TEST_F(DispatcherTest, setEDNSForExternalRepository) {
+    EXPECT_THROW(disp.setEDNS(false), DispatcherError);
 }
 
 TEST_F(DispatcherTest, serverAddress) {

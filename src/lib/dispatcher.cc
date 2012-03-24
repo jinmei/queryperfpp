@@ -271,9 +271,12 @@ Dispatcher::Dispatcher(MessageManager& msg_mgr,
 
 const char* const Dispatcher::DEFAULT_SERVER = "::1";
 
-Dispatcher::Dispatcher(const string& data_file) :
-    impl_(new DispatcherImpl(data_file))
-{
+Dispatcher::Dispatcher(const string& data_file) {
+    if (data_file == "-") {
+        impl_ = new DispatcherImpl(cin);
+    } else {
+        impl_ = new DispatcherImpl(data_file);
+    }
 }
 
 Dispatcher::Dispatcher(istream& input_stream) :

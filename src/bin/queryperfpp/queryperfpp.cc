@@ -62,6 +62,8 @@ runQueryperf(void* arg) {
     return (NULL);
 }
 
+const char* const DEFAULT_DATA_FILE = "-"; // stdin
+
 typedef shared_ptr<Dispatcher> DispatcherPtr;
 typedef shared_ptr<stringstream> SStreamPtr;
 }
@@ -112,9 +114,7 @@ main(int argc, char* argv[]) {
         }
     }
     if (data_file == NULL && query_txt == NULL) {
-        cerr << "Either data file (via -d) or query data must specified"
-             << endl;
-        return (1);
+        data_file = DEFAULT_DATA_FILE;
     }
     if (data_file != NULL && query_txt != NULL) {
         cerr << "-d and -Q cannot be specified at the same time" << endl;
@@ -126,6 +126,10 @@ main(int argc, char* argv[]) {
         vector<SStreamPtr> input_streams;
         if (num_threads_txt != NULL) {
             num_threads = lexical_cast<size_t>(num_threads_txt);
+        }
+        if (num_threads > 1 && data_file != NULL && string(data_file) == "-") {
+            cerr << "stdin can be used as input only with 1 thread" << endl;
+            return (1);
         }
 
         // Prepare

@@ -42,11 +42,14 @@ const size_t MAX_EMPTY_LOOP = 1000;
 namespace Queryperf {
 
 struct QueryRepository::QueryRepositoryImpl {
-    QueryRepositoryImpl(istream& input) : input_(input) {
+    QueryRepositoryImpl(istream& input) :
+        qclass_(RRClass::IN()), input_(input)
+    {
         initialize();
     }
 
     QueryRepositoryImpl(const string& input_file) :
+        qclass_(RRClass::IN()),
         input_ifs_(new ifstream(input_file.c_str())),
         input_(*input_ifs_)
     {
@@ -70,6 +73,7 @@ struct QueryRepository::QueryRepositoryImpl {
     // or from the input stream.
     QuestionPtr getNextQuestion();
 
+    RRClass qclass_;            // Query class
     scoped_ptr<ifstream> input_ifs_;
     istream& input_;
     map<string, string> aux_typemap_;
@@ -125,7 +129,7 @@ QueryRepository::QueryRepositoryImpl::readNextQuestion(bool rewind) {
             qtype_text = it->second;
         }
         try {
-            question.reset(new Question(Name(qname_text), RRClass::IN(),
+            question.reset(new Question(Name(qname_text), qclass_,
                                         RRType(qtype_text)));
         } catch (const isc::Exception& ex) {
             // The input data may contain bad string, which would trigger an
@@ -197,6 +201,11 @@ QueryRepository::getNextQuery(Message& query_msg) {
     query_msg.setRcode(Rcode::NOERROR());
     query_msg.setHeaderFlag(Message::HEADERFLAG_RD);
     query_msg.addQuestion(question);
+}
+
+void
+QueryRepository::setQueryClass(RRClass qclass) {
+    impl_->qclass_ = qclass;
 }
 
 } // end of QueryPerf

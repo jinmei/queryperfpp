@@ -32,7 +32,8 @@ namespace Queryperf {
 namespace unittest {
 void
 queryMessageCheck(const void* data, size_t data_len, qid_t expected_qid,
-                  const Name& expected_qname, RRType expected_qtype)
+                  const Name& expected_qname, RRType expected_qtype,
+                  RRClass expected_qclass)
 {
     EXPECT_NE(0, data_len);
     ASSERT_NE(static_cast<const void*>(NULL), data);
@@ -40,12 +41,14 @@ queryMessageCheck(const void* data, size_t data_len, qid_t expected_qid,
     Message msg(Message::PARSE);
     InputBuffer buffer(data, data_len);
     msg.fromWire(buffer);
-    queryMessageCheck(msg, expected_qid, expected_qname, expected_qtype);
+    queryMessageCheck(msg, expected_qid, expected_qname, expected_qtype,
+                      expected_qclass);
 }
 
 void
 queryMessageCheck(const Message& msg, qid_t expected_qid,
-                  const Name& expected_qname, RRType expected_qtype)
+                  const Name& expected_qname, RRType expected_qtype,
+                  RRClass expected_qclass)
 {
     EXPECT_EQ(Opcode::QUERY(), msg.getOpcode());
     EXPECT_EQ(Rcode::NOERROR(), msg.getRcode());
@@ -65,7 +68,7 @@ queryMessageCheck(const Message& msg, qid_t expected_qid,
     ASSERT_FALSE(qit == msg.endQuestion());
     EXPECT_EQ(expected_qname, (*qit)->getName());
     EXPECT_EQ(expected_qtype, (*qit)->getType());
-    EXPECT_EQ(RRClass::IN(), (*qit)->getClass());
+    EXPECT_EQ(expected_qclass, (*qit)->getClass());
 }
 } // end of unittest
 } // end of Queryperf

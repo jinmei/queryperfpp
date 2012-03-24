@@ -16,6 +16,7 @@
 #define __QUERYPERF_QUERY_REPOSITORY_H 1
 
 #include <dns/message.h>
+#include <dns/rrclass.h>
 
 #include <boost/noncopyable.hpp>
 
@@ -47,6 +48,8 @@ public:
     size_t getQueryCount() const;
 
     void getNextQuery(isc::dns::Message& message);
+
+    void setQueryClass(isc::dns::RRClass qclass);
 
 private:
     struct QueryRepositoryImpl;

@@ -176,6 +176,11 @@ QueryRepository::~QueryRepository() {
 
 void
 QueryRepository::load() {
+    // duplicate load check
+    if (!impl_->questions_.empty()) {
+        throw QueryRepositoryError("duplicate preload attempt");
+    }
+
     QuestionPtr question;
     while ((question = impl_->readNextQuestion(false)) != NULL) {
         impl_->questions_.push_back(question);

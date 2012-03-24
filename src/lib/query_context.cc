@@ -40,14 +40,14 @@ QueryContext::~QueryContext() {
     delete impl_;
 }
 
-QueryContext::WireData
+QueryContext::QuerySpec
 QueryContext::start(qid_t qid) {
     impl_->repository_->getNextQuery(impl_->query_msg_);
     impl_->query_msg_.setQid(qid);
     impl_->query_renderer_.clear();
     impl_->query_msg_.toWire(impl_->query_renderer_);
-    return (WireData(impl_->query_renderer_.getData(),
-                     impl_->query_renderer_.getLength()));
+    return (QuerySpec(impl_->query_renderer_.getData(),
+                      impl_->query_renderer_.getLength()));
 }
 
 QueryContext*

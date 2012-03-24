@@ -27,11 +27,12 @@ namespace Queryperf {
 
 class QueryContext : private boost::noncopyable {
 public:
-    /// \brief A straightforward tuple of pointer to opaque data and its length
+    /// \brief A supplemental structure to represent parameters of a query
     ///
-    /// This structure intends to store DNS queries in wire format.
-    struct WireData {
-        WireData(const void* data_param, size_t len_param) :
+    /// This structure intends to store DNS queries in wire format and some
+    /// network layer information.
+    struct QuerySpec {
+        QuerySpec(const void* data_param, size_t len_param) :
             data(data_param), len(len_param)
         {}
         const void* const data;
@@ -41,7 +42,7 @@ public:
     QueryContext(QueryRepository& repository);
     ~QueryContext();
 
-    WireData start(isc::dns::qid_t qid);
+    QuerySpec start(isc::dns::qid_t qid);
 
 private:
     struct QueryContextImpl;

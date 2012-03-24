@@ -62,7 +62,7 @@ public:
         delete ctx_;
     }
 
-    QueryContext::WireData start(qid_t qid, const time_duration& timeout) {
+    QueryContext::QuerySpec start(qid_t qid, const time_duration& timeout) {
         assert(ctx_ != NULL);
         qid_ = qid;
         timer_->start(timeout);
@@ -207,8 +207,8 @@ Dispatcher::DispatcherImpl::run() {
     // Record the start time and dispatch initial queries at once.
     start_time_ = microsec_clock::local_time();
     BOOST_FOREACH(shared_ptr<QueryEvent>& qev, outstanding_) {
-        QueryContext::WireData qry_data = qev->start(qid_, query_timeout_);
-        udp_socket_->send(qry_data.data, qry_data.len);
+        QueryContext::QuerySpec qry_spec = qev->start(qid_, query_timeout_);
+        udp_socket_->send(qry_spec.data, qry_spec.len);
         ++queries_sent_;
         ++qid_;
     }
@@ -244,9 +244,9 @@ Dispatcher::DispatcherImpl::restartQuery(qid_t qid, const Message* response) {
 
         // If necessary, create a new query and dispatch it.
         if (keep_sending_) {
-            QueryContext::WireData qry_data = (*qev_it)->start(qid_,
-                                                               query_timeout_);
-            udp_socket_->send(qry_data.data, qry_data.len);
+            QueryContext::QuerySpec qry_spec = (*qev_it)->start(
+                qid_, query_timeout_);
+            udp_socket_->send(qry_spec.data, qry_spec.len);
             ++queries_sent_;
             ++qid_;
 

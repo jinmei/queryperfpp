@@ -50,7 +50,7 @@ protected:
 };
 
 void
-messageCheck(const QueryContext::WireData& msg_data, qid_t expected_qid,
+messageCheck(const QueryContext::QuerySpec& msg_data, qid_t expected_qid,
              const Name& expected_qname, RRType expected_qtype)
 {
     unittest::queryMessageCheck(msg_data.data, msg_data.len, expected_qid,

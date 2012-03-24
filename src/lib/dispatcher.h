@@ -87,6 +87,11 @@ public:
     void setTestDuration(size_t duration);
     size_t getTestDuration() const;
 
+    /// \brief Set the default RR class of queries.
+    ///
+    /// This must be called before run().
+    void setDefaultQueryClass(const std::string& qclass_txt);
+
     /// \brief Return the number of queries sent from the dispatcher.
     size_t getQueriesSent() const;
 

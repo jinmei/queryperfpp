@@ -260,6 +260,28 @@ TEST_F(DispatcherTest, preloadForExternalRepository) {
     EXPECT_THROW(disp.loadQueries(), DispatcherError);
 }
 
+TEST_F(DispatcherTest, setQclass) {
+    Dispatcher disp("test-input.txt");
+    // Invalid RR class text should be rejected
+    EXPECT_THROW(disp.setDefaultQueryClass("no_such_class"), DispatcherError);
+    // This is okay
+    disp.setDefaultQueryClass("CH");
+}
+
+TEST_F(DispatcherTest, setQclassForExternalRepository) {
+    // qclass cannot be speicified for external query repository
+    EXPECT_THROW(disp.setDefaultQueryClass("CH"), DispatcherError);
+}
+
+TEST_F(DispatcherTest, setQclassAfterRun) {
+    Dispatcher disp("test-input.txt");
+    // There's no server to be tested, so the send attempt should fail
+    EXPECT_THROW(disp.run(), MessageSocketError);
+
+    // query class can be set only before running the test.
+    EXPECT_THROW(disp.setDefaultQueryClass("CH"), DispatcherError);
+}
+
 TEST_F(DispatcherTest, serverAddress) {
     // Default server address
     EXPECT_EQ("::1", disp.getServerAddress());

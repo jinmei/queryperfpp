@@ -20,7 +20,9 @@
 
 #include <util/buffer.h>
 
+#include <exceptions/exceptions.h>
 #include <dns/message.h>
+#include <dns/rrclass.h>
 
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
@@ -279,6 +281,26 @@ Dispatcher::loadQueries() {
     }
 
     impl_->qry_repo_local_->load();
+}
+
+void
+Dispatcher::setDefaultQueryClass(const std::string& qclass_txt) {
+    // default qclass must be set before running tests.
+    if (!impl_->start_time_.is_special()) {
+        throw DispatcherError("default query class is being set after run");
+    }
+    // qclass can be used (via the dispatcher) only for the internal
+    // repository.
+    if (!impl_->qry_repo_local_) {
+        throw DispatcherError("default query class is being set "
+                              "for external repository");
+    }
+
+    try {
+        impl_->qry_repo_local_->setQueryClass(RRClass(qclass_txt));
+    } catch (const isc::Exception&) {
+        throw DispatcherError("invalid query class: " + qclass_txt);
+    }
 }
 
 void

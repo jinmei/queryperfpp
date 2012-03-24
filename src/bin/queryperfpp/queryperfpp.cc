@@ -37,8 +37,10 @@ using boost::shared_ptr;
 namespace {
 void
 usage() {
-    cerr << "Usage: queryperf++ [-d datafile] [-n #threads] [-L]\n";
-    cerr << "                   [-s server_addr] [-p port] [-l limit]" << endl;
+    cerr << "Usage: queryperf++ [-C qclass] [-d datafile] [-n #threads]\n";
+    cerr << "                   [-L] [-s server_addr] [-p port] [-l limit]\n";
+    cerr << "  -C specifies default query class (default: \"IN\")";
+    cerr << endl;
     exit(1);
 }
 
@@ -58,6 +60,7 @@ typedef shared_ptr<Dispatcher> DispatcherPtr;
 
 int
 main(int argc, char* argv[]) {
+    const char* qclass_txt = NULL;
     const char* data_file = NULL;
     const char* server_address = NULL;
     const char* server_port_txt = NULL;
@@ -67,8 +70,11 @@ main(int argc, char* argv[]) {
     bool preload = false;
 
     int ch;
-    while ((ch = getopt(argc, argv, "d:l:Ln:p:s:")) != -1) {
+    while ((ch = getopt(argc, argv, "C:d:hl:Ln:p:s:")) != -1) {
         switch (ch) {
+        case 'C':
+            qclass_txt = optarg;
+            break;
         case 'd':
             data_file = optarg;
             break;
@@ -87,6 +93,7 @@ main(int argc, char* argv[]) {
         case 'L':
             preload = true;
             break;
+        case 'h':
         case '?':
         default :
             usage();
@@ -114,6 +121,9 @@ main(int argc, char* argv[]) {
             }
             if (time_limit_txt != NULL) {
                 disp->setTestDuration(lexical_cast<size_t>(time_limit_txt));
+            }
+            if (qclass_txt != NULL) {
+                disp->setDefaultQueryClass(qclass_txt);
             }
             if (preload) {
                 disp->loadQueries();

@@ -34,7 +34,7 @@ public:
         WireData(const void* data_param, size_t len_param) :
             data(data_param), len(len_param)
         {}
-        const void* data;
+        const void* const data;
         const size_t len;
     };
 

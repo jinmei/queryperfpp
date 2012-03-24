@@ -197,7 +197,6 @@ main(int argc, char* argv[]) {
                 disp.reset(new Dispatcher(data_file));
             } else {
                 assert(query_txt != NULL);
-                cout << query_txt << endl;
                 SStreamPtr ss(new stringstream(query_txt));
                 disp.reset(new Dispatcher(*ss));
                 input_streams.push_back(ss);

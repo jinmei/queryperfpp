@@ -37,6 +37,25 @@ using boost::lexical_cast;
 using boost::shared_ptr;
 
 namespace {
+struct QueryStatistics {
+    QueryStatistics() : queries_sent(0), queries_completed(0)
+    {}
+
+    size_t queries_sent;
+    size_t queries_completed;
+    vector<double> qps_results; // a list of QPS per worker thread
+};
+
+double
+accumulateResult(const Dispatcher& disp, QueryStatistics& result) {
+    result.queries_sent += disp.getQueriesSent();
+    result.queries_completed += disp.getQueriesCompleted();
+
+    const time_duration duration = disp.getEndTime() - disp.getStartTime();
+    return (disp.getQueriesCompleted() / (
+                static_cast<double>(duration.total_microseconds()) / 1000000));
+}
+
 void
 usage() {
     const string usage_head = "Usage: queryperf++ ";
@@ -205,6 +224,7 @@ main(int argc, char* argv[]) {
 
         // Run
         vector<pthread_t> threads;
+        const ptime start_time = microsec_clock::local_time();
         for (size_t i = 0; i < num_threads; ++i) {
             pthread_t th;
             const int error = pthread_create(&th, NULL, runQueryperf,
@@ -224,27 +244,42 @@ main(int argc, char* argv[]) {
                 cerr << "pthread_join failed: " << strerror(error) << endl;
             }
         }
+        const ptime end_time = microsec_clock::local_time();
 
+        // Accumulate per-thread statistics.  Print the summary QPS for each,
+        // and if more than one thread was used, print the sum of them.
+        QueryStatistics result;
+        double total_qps = 0;
+        cout.precision(6);
         for (size_t i = 0; i < num_threads; ++i) {
-            const Dispatcher& disp = *dispatchers[i];
-            cout << "  Queries sent:         " << disp.getQueriesSent()
-                 << " queries\n";
-            cout << "  Queries completed:    " << disp.getQueriesCompleted()
-                 << " queries\n";
-            cout << "\n";
+            const double qps = accumulateResult(*dispatchers[i], result);
+            total_qps += qps;
+            cout << "  Queries per second #" << i <<
+                ":  " << fixed << qps << " qps\n";
+        }
+        if (num_threads > 1) {
+            cout << "         Summarized QPS:  " << fixed << total_qps
+                 << " qps\n";
+        }
+        cout << endl;
 
-            cout << "  Started at:           " << disp.getStartTime() << endl;
-            cout << "  Finished at:          " << disp.getEndTime() << endl;
-            cout << "\n";
+        // Print the total result.
+        cout << "  Queries sent:         " << result.queries_sent
+             << " queries\n";
+        cout << "  Queries completed:    " << result.queries_completed
+             << " queries\n";
+        cout << "\n";
 
-            const time_duration duration = disp.getEndTime() -
-                disp.getStartTime();
-            const double qps = disp.getQueriesCompleted() / (
-                static_cast<double>(duration.total_microseconds()) / 1000000);
-            cout.precision(6);
+        cout << "  Started at:           " << start_time << endl;
+        cout << "  Finished at:          " << end_time << endl;
+        cout << "\n";
+
+        const time_duration duration = end_time - start_time;
+        const double qps = result.queries_completed / (
+            static_cast<double>(duration.total_microseconds()) / 1000000);
+        cout.precision(6);
             cout << "  Queries per second:   " << fixed << qps << " qps\n";
             cout << endl;
-        }
     } catch (const exception& ex) {
         cerr << "Unexpected failure: " << ex.what() << endl;
         return (1);

@@ -65,10 +65,15 @@ public:
     Dispatcher(MessageManager& msg_mgr, QueryContextCreator& ctx_creator);
 
     /// \brief Constructor when using "builtin" classes.
-    Dispatcher(const std::string& data_file, bool preload);
+    Dispatcher(const std::string& data_file);
 
     /// Destructor.
     ~Dispatcher();
+
+    /// \brief Preload queries.
+    ///
+    /// This can be called at most once, and must be called before run().
+    void loadQueries();
 
     /// \brief Start the dispatcher.
     void run();

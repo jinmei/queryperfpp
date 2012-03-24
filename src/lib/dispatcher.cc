@@ -93,7 +93,7 @@ struct Dispatcher::DispatcherImpl {
         initParams();
     }
 
-    DispatcherImpl(const string& data_file, bool preload) :
+    DispatcherImpl(const string& data_file) :
         qry_repo_local_(new QueryRepository(data_file)),
         msg_mgr_local_(new ASIOMessageManager),
         qryctx_creator_local_(new QueryContextCreator(*qry_repo_local_)),
@@ -102,9 +102,6 @@ struct Dispatcher::DispatcherImpl {
         response_(Message::PARSE)
     {
         initParams();
-        if (preload) {
-            qry_repo_local_->load();
-        }
     }
 
     void initParams() {
@@ -260,13 +257,28 @@ Dispatcher::Dispatcher(MessageManager& msg_mgr,
 
 const char* const Dispatcher::DEFAULT_SERVER = "::1";
 
-Dispatcher::Dispatcher(const string& data_file, bool preload) :
-    impl_(new DispatcherImpl(data_file, preload))
+Dispatcher::Dispatcher(const string& data_file) :
+    impl_(new DispatcherImpl(data_file))
 {
 }
 
 Dispatcher::~Dispatcher() {
     delete impl_;
+}
+
+void
+Dispatcher::loadQueries() {
+    // Query preload must be done before running tests.
+    if (!impl_->start_time_.is_special()) {
+        throw DispatcherError("query load attempt after run");
+    }
+    // Preload can be used (via the dispatcher) only for the internal
+    // repository.
+    if (!impl_->qry_repo_local_) {
+        throw DispatcherError("query load attempt for external repository");
+    }
+
+    impl_->qry_repo_local_->load();
 }
 
 void

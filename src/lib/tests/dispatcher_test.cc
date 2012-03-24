@@ -234,14 +234,30 @@ TEST_F(DispatcherTest, sessionTimer) {
     EXPECT_TRUE(disp.getStartTime() < disp.getEndTime());
 }
 
-TEST_F(DispatcherTest, aueryTimer) {
-    //disp.run();
-}
-
 TEST_F(DispatcherTest, builtins) {
     // creating dispatcher with "builtin" support classes.  No disruption
     // should happen.
-    EXPECT_NO_THROW(Dispatcher disp("test-input.txt", false));
+    Dispatcher disp("test-input.txt");
+
+    // They try preload queries.  Again, no disruption should happen.
+    disp.loadQueries();
+
+    // Duplicate preload should be rejected (by the internal repository).
+    EXPECT_THROW(disp.loadQueries(), QueryRepositoryError);
+}
+
+TEST_F(DispatcherTest, preloadAfterRun) {
+    Dispatcher disp("test-input.txt");
+    // There's no server to be tested, so the send attempt should fail
+    EXPECT_THROW(disp.run(), MessageSocketError);
+
+    // preload can be done only before running the test.
+    EXPECT_THROW(disp.loadQueries(), DispatcherError);
+}
+
+TEST_F(DispatcherTest, preloadForExternalRepository) {
+    // preload for external query repository is prohibited
+    EXPECT_THROW(disp.loadQueries(), DispatcherError);
 }
 
 TEST_F(DispatcherTest, serverAddress) {

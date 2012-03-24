@@ -105,7 +105,7 @@ main(int argc, char* argv[]) {
 
         // Prepare
         for (size_t i = 0; i < num_threads; ++i) {
-            DispatcherPtr disp(new Dispatcher(data_file, preload));
+            DispatcherPtr disp(new Dispatcher(data_file));
             if (server_address != NULL) {
                 disp->setServerAddress(server_address);
             }
@@ -114,6 +114,9 @@ main(int argc, char* argv[]) {
             }
             if (time_limit_txt != NULL) {
                 disp->setTestDuration(lexical_cast<size_t>(time_limit_txt));
+            }
+            if (preload) {
+                disp->loadQueries();
             }
             dispatchers.push_back(disp);
         }

@@ -5,7 +5,6 @@ AC_PREREQ([2.68])
 AC_INIT(queryperfpp, 0.1, jinmei@wide.ad.jp)
 AC_CONFIG_SRCDIR(README)
 AM_INIT_AUTOMAKE
-m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])dnl be backward compatible
 AC_CONFIG_HEADERS([config.h])
 
 # Checks for programs.
@@ -232,6 +231,11 @@ CXXFLAGS="$CXXFLAGS -Werror -Wall -Wextra -Wwrite-strings -Woverloaded-virtual -
 fi
 
 # Checks for library functions.
+
+# See if we need to be explicit for thread support
+PTHREAD_LDFLAGS=
+AC_CHECK_LIB(pthread, pthread_create,[ PTHREAD_LDFLAGS=-lpthread ], [])
+LDFLAGS="$LDFLAGS $PTHREAD_LDFLAGS"
 
 AC_CONFIG_FILES([Makefile
                  src/Makefile

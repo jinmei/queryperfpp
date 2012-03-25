@@ -32,9 +32,10 @@ public:
     /// This structure intends to store DNS queries in wire format and some
     /// network layer information.
     struct QuerySpec {
-        QuerySpec(const void* data_param, size_t len_param) :
-            data(data_param), len(len_param)
+        QuerySpec(int proto_param, const void* data_param, size_t len_param) :
+            proto(proto_param), data(data_param), len(len_param)
         {}
+        const int proto;
         const void* const data;
         const size_t len;
     };

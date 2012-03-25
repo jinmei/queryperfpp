@@ -30,6 +30,8 @@
 
 #include <sstream>
 
+#include <netinet/in.h>
+
 using namespace std;
 using namespace isc::dns;
 using namespace isc::util;
@@ -50,10 +52,12 @@ protected:
 };
 
 void
-messageCheck(const QueryContext::QuerySpec& msg_data, qid_t expected_qid,
-             const Name& expected_qname, RRType expected_qtype)
+messageCheck(const QueryContext::QuerySpec& msg_spec, qid_t expected_qid,
+             const Name& expected_qname, RRType expected_qtype,
+             int expected_proto = IPPROTO_UDP)
 {
-    unittest::queryMessageCheck(msg_data.data, msg_data.len, expected_qid,
+    EXPECT_EQ(expected_proto, msg_spec.proto);
+    unittest::queryMessageCheck(msg_spec.data, msg_spec.len, expected_qid,
                                 expected_qname, expected_qtype);
 }
 
@@ -68,6 +72,16 @@ TEST_F(QueryContextTest, start) {
                  RRType::SOA());
     messageCheck(ctx.start(TEST_QID + 1), TEST_QID + 1,
                  Name("www.example.com"), RRType::A());
+}
+
+TEST_F(QueryContextTest, setProtocol) {
+    // Check the behavior when specifying a non default transport protocol.
+    const qid_t TEST_QID = 4200;
+
+    QueryContext ctx(repo);
+    repo.setProtocol(IPPROTO_TCP);
+    messageCheck(ctx.start(TEST_QID), TEST_QID, Name("example.com"),
+                 RRType::SOA(), IPPROTO_TCP);
 }
 
 }

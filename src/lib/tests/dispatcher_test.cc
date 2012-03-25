@@ -32,6 +32,8 @@
 
 #include <sstream>
 
+#include <netinet/in.h>
+
 using namespace std;
 using namespace isc::dns;
 using namespace Queryperf;
@@ -304,6 +306,17 @@ TEST_F(DispatcherTest, setEDNS) {
 
 TEST_F(DispatcherTest, setEDNSForExternalRepository) {
     EXPECT_THROW(disp.setEDNS(false), DispatcherError);
+}
+
+TEST_F(DispatcherTest, setProtocol) {
+    Dispatcher disp("test-input.txt");
+    disp.setProtocol(IPPROTO_TCP);
+    EXPECT_THROW(disp.run(), MessageSocketError);
+    EXPECT_THROW(disp.setProtocol(IPPROTO_UDP), DispatcherError);
+}
+
+TEST_F(DispatcherTest, setProtocolRepository) {
+    EXPECT_THROW(disp.setProtocol(IPPROTO_TCP), DispatcherError);
 }
 
 TEST_F(DispatcherTest, serverAddress) {

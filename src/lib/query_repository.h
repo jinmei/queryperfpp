@@ -47,7 +47,7 @@ public:
     /// It returns 0 if preload hasn't been initiated.
     size_t getQueryCount() const;
 
-    void getNextQuery(isc::dns::Message& message);
+    void getNextQuery(isc::dns::Message& message, int& protocol);
 
     /// \brief Set the default RR class of the queries.
     ///
@@ -58,8 +58,17 @@ public:
 
     /// \brief Toggle the DNSSEC DO bit (in EDNS0 OPT RR) of the queries.
     ///
+    /// When preload is used, this must be called before load().
+    ///
     /// \param on A boolean flag indicating whether to set the DO bit.
     void setDNSSEC(bool on);
+
+    /// \brief Set the default transport protocol used to send queries.
+    ///
+    /// When preload is used, this must be called before load().
+    ///
+    /// \param proto Either IPPROTO_UDP (for UDP) or IPPROTO_TCP (for TCP).
+    void setProtocol(int proto);
 
     /// \brief Toggle whether to include EDNS0 in queries.
     ///

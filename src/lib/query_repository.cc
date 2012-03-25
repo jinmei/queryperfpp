@@ -23,6 +23,7 @@
 #include <dns/rrtype.h>
 #include <dns/question.h>
 
+#include <boost/lexical_cast.hpp>
 #include <boost/scoped_ptr.hpp>
 
 #include <istream>
@@ -31,13 +32,30 @@
 #include <map>
 #include <vector>
 
+#include <netinet/in.h>
+
 using namespace std;
+using boost::lexical_cast;
 using boost::scoped_ptr;
 using namespace isc::dns;
 
 namespace {
 // an ad hoc threadshold to prevent a busy loop due to an empty input file.
 const size_t MAX_EMPTY_LOOP = 1000;
+
+// Set of parameters of a request (mostly query, but may be of a different
+// opcode)
+struct RequestParam {
+    RequestParam(QuestionPtr question_param, int proto_param) :
+        question(question_param), proto(proto_param)
+    {}
+
+    // Default constructor.  Using some invalid initial values.
+    RequestParam() : proto(IPPROTO_NONE) {}
+
+    QuestionPtr question;
+    int proto;                  // Transport protocol
+};
 }
 
 namespace Queryperf {
@@ -60,6 +78,7 @@ struct QueryRepository::QueryRepositoryImpl {
     void initialize() {
         use_dnssec_ = true;
         use_edns_ = true;
+        proto_ = IPPROTO_UDP;
 
         edns_.reset(new EDNS);
         edns_->setUDPSize(4096);
@@ -75,28 +94,32 @@ struct QueryRepository::QueryRepositoryImpl {
     }
 
     // Extract the next question from the input stream
-    QuestionPtr readNextQuestion(bool rewind);
+    QuestionPtr readNextRequest(bool rewind);
 
-    // Return the next question, either from the preloaded vector (if done)
-    // or from the input stream.
-    QuestionPtr getNextQuestion();
+    // Get the parameters of the next request, either from the preloaded
+    // vector (if done) or from the input stream.
+    const RequestParam& getNextParam();
 
     RRClass qclass_;            // Query class
     scoped_ptr<ifstream> input_ifs_;
     istream& input_;
     map<string, string> aux_typemap_;
-    vector<QuestionPtr> questions_; // used in the "preload" mode
+    vector<RequestParam> params_;   // used in the "preload" mode
     bool use_edns_;                 // whether to include ENDS by default.
     bool use_dnssec_;               // whether to set EDNS DO bit by default.
                                     // EDNS will be included regardless of
                                     // use_edns_.
     EDNSPtr edns_;                  // template of common EDNS OPT RR
-    vector<QuestionPtr>::const_iterator current_question_;
-    vector<QuestionPtr>::const_iterator end_question_;
+    int proto_;                     // Default transport protocol
+    vector<RequestParam>::const_iterator current_param_;
+    vector<RequestParam>::const_iterator end_param_;
+
+private:
+    RequestParam param_placeholder_;
 };
 
 QuestionPtr
-QueryRepository::QueryRepositoryImpl::readNextQuestion(bool rewind) {
+QueryRepository::QueryRepositoryImpl::readNextRequest(bool rewind) {
     QuestionPtr question;
 
     if (!rewind && input_.eof()) {
@@ -124,7 +147,7 @@ QueryRepository::QueryRepositoryImpl::readNextQuestion(bool rewind) {
                                            "input data");
             }
             if (line[0] == ';') { // comment check (note it's safe to see [0])
-                line.clear();     // force ingoring this line.
+                line.clear();     // force ignoring this line.
             }
         }
 
@@ -156,17 +179,20 @@ QueryRepository::QueryRepositoryImpl::readNextQuestion(bool rewind) {
     return (question);
 }
 
-QuestionPtr
-QueryRepository::QueryRepositoryImpl::getNextQuestion() {
-    if (!questions_.empty()) {
+const RequestParam&
+QueryRepository::QueryRepositoryImpl::getNextParam() {
+    if (!params_.empty()) {
         // queries have been preloaded.  get the next one from the vector.
-        QuestionPtr question = *current_question_;
-        if (++current_question_ == end_question_) {
-            current_question_ = questions_.begin();
+        const RequestParam& param = *current_param_;
+        if (++current_param_ == end_param_) {
+            current_param_ = params_.begin();
         }
-        return (question);
+        return (param);
     }
-    return (readNextQuestion(true));
+
+    param_placeholder_.question = readNextRequest(true);
+    param_placeholder_.proto = proto_;
+    return (param_placeholder_);
 }
 
 QueryRepository::QueryRepository(istream& input) :
@@ -190,35 +216,36 @@ QueryRepository::~QueryRepository() {
 void
 QueryRepository::load() {
     // duplicate load check
-    if (!impl_->questions_.empty()) {
+    if (!impl_->params_.empty()) {
         throw QueryRepositoryError("duplicate preload attempt");
     }
 
     QuestionPtr question;
-    while ((question = impl_->readNextQuestion(false)) != NULL) {
-        impl_->questions_.push_back(question);
+    while ((question = impl_->readNextRequest(false)) != NULL) {
+        impl_->params_.push_back(RequestParam(question, impl_->proto_));
     }
-    if (impl_->questions_.empty()) {
+    if (impl_->params_.empty()) {
         throw QueryRepositoryError("failed to preload queries: empty input");
     }
-    impl_->current_question_ = impl_->questions_.begin();
-    impl_->end_question_ = impl_->questions_.end();
+    impl_->current_param_ = impl_->params_.begin();
+    impl_->end_param_ = impl_->params_.end();
 }
 
 size_t
 QueryRepository::getQueryCount() const {
-    return (impl_->questions_.size());
+    return (impl_->params_.size());
 }
 
 void
-QueryRepository::getNextQuery(Message& query_msg) {
-    QuestionPtr question = impl_->getNextQuestion();
+QueryRepository::getNextQuery(Message& query_msg, int& protocol) {
+    const RequestParam& param = impl_->getNextParam();
 
     query_msg.clear(Message::RENDER);
     query_msg.setOpcode(Opcode::QUERY());
     query_msg.setRcode(Rcode::NOERROR());
     query_msg.setHeaderFlag(Message::HEADERFLAG_RD);
-    query_msg.addQuestion(question);
+    query_msg.addQuestion(param.question);
+    protocol = param.proto;
     if (impl_->use_edns_ || impl_->use_dnssec_) {
         query_msg.setEDNS(impl_->edns_);
     }
@@ -226,7 +253,7 @@ QueryRepository::getNextQuery(Message& query_msg) {
 
 void
 QueryRepository::setQueryClass(RRClass qclass) {
-    if (!impl_->questions_.empty()) {
+    if (!impl_->params_.empty()) {
         throw QueryRepositoryError("query class is being set after preload");
     }
 
@@ -235,7 +262,7 @@ QueryRepository::setQueryClass(RRClass qclass) {
 
 void
 QueryRepository::setDNSSEC(bool on) {
-    if (!impl_->questions_.empty()) {
+    if (!impl_->params_.empty()) {
         throw QueryRepositoryError(
             "DNSSEC DO bit is being changed after preload");
     }
@@ -246,11 +273,24 @@ QueryRepository::setDNSSEC(bool on) {
 
 void
 QueryRepository::setEDNS(bool on) {
-    if (!impl_->questions_.empty()) {
+    if (!impl_->params_.empty()) {
         throw QueryRepositoryError("EDNS flag is being changed after preload");
     }
 
     impl_->use_edns_ = on;
+}
+
+void
+QueryRepository::setProtocol(int proto) {
+    if (!impl_->params_.empty()) {
+        throw QueryRepositoryError("Protocol is being changed after preload");
+    }
+    if (proto != IPPROTO_UDP && proto != IPPROTO_TCP) {
+        throw QueryRepositoryError("Invalid or unsupported transport protocol "
+                                   ": " + lexical_cast<string>(proto));
+    }
+
+    impl_->proto_ = proto;
 }
 
 } // end of QueryPerf

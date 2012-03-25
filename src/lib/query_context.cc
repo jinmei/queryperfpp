@@ -42,11 +42,12 @@ QueryContext::~QueryContext() {
 
 QueryContext::QuerySpec
 QueryContext::start(qid_t qid) {
-    impl_->repository_->getNextQuery(impl_->query_msg_);
+    int protocol;
+    impl_->repository_->getNextQuery(impl_->query_msg_, protocol);
     impl_->query_msg_.setQid(qid);
     impl_->query_renderer_.clear();
     impl_->query_msg_.toWire(impl_->query_renderer_);
-    return (QuerySpec(impl_->query_renderer_.getData(),
+    return (QuerySpec(protocol, impl_->query_renderer_.getData(),
                       impl_->query_renderer_.getLength()));
 }
 

@@ -386,6 +386,22 @@ Dispatcher::setServerPort(uint16_t port) {
     impl_->server_port_ = port;
 }
 
+void
+Dispatcher::setProtocol(int proto) {
+    // This must be set before running tests.
+    if (!impl_->start_time_.is_special()) {
+        throw DispatcherError("Default transport protocol cannot be set "
+                              "after run()");
+    }
+    // Default transport protocol can be set (via the dispatcher) only for
+    // the internal repository.
+    if (!impl_->qry_repo_local_) {
+        throw DispatcherError("Default transport protocol cannot be set "
+                              "for external repository");
+    }
+    impl_->qry_repo_local_->setProtocol(proto);
+}
+
 size_t
 Dispatcher::getTestDuration() const {
     return (impl_->test_duration_);

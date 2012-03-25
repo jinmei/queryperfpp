@@ -91,6 +91,11 @@ public:
     void setTestDuration(size_t duration);
     size_t getTestDuration() const;
 
+    /// \brief Set the default transport protocol used to send queries.
+    ///
+    /// This method must be called before run().
+    void setProtocol(int proto);
+
     /// \brief Set the default RR class of queries.
     ///
     /// This must be called before run().

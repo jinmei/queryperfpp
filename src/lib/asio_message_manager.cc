@@ -162,6 +162,11 @@ TCPMessageSocket::handleWrite(const asio::error_code& ec, size_t) {
         throw MessageSocketError("unexpected failure on socket write: " +
                                  ec.message());
     }
+    // Immediately after sending the query, shutdown the outbound direction
+    // of the socket, so the server won't wait for subsequent queries.
+    asio_sock_.shutdown(tcp::socket::shutdown_send);
+
+    // Then wait for the response.
     asio_sock_.async_receive(asio::buffer(msglen_placeholder_,
                                           sizeof(msglen_placeholder_)),
                              boost::bind(&TCPMessageSocket::handleReadLength,

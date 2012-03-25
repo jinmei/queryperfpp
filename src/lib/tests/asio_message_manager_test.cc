@@ -193,13 +193,27 @@ protected:
     }
 
     // Common callback for the message socket.
-    void sendCallback(const MessageSocket::Event& ev) {
+private:
+    void callbackCommon(const MessageSocket::Event& ev) {
         ++sendcallback_called_;
         EXPECT_EQ(sizeof(TEST_DATA), ev.datalen);
         EXPECT_STREQ(TEST_DATA, static_cast<const char*>(ev.data));
         if (send_done_ == sendcallback_called_) {
             asio_manager_.stop();
         }
+    }
+
+protected:
+    void sendUDPCallback(const MessageSocket::Event& ev) {
+        callbackCommon(ev);
+    }
+
+    void sendTCPCallback(const MessageSocket::Event& ev) {
+        // Confirm the client has made sure there will be no more query.
+        char buf[1];
+        EXPECT_EQ(0, recv(accept_s_.fd, buf, 1, setRecvDelay(accept_s_.fd)));
+
+        callbackCommon(ev);
     }
 
     // Common callback for the message socket.
@@ -252,6 +266,7 @@ protected:
     ASIOMessageManager asio_manager_;
     scoped_ptr<MessageSocket> test_sock_;
     scoped_ptr<MessageTimer> test_timer_;
+    ScopedSocket accept_s_;
 
 private:
     SockAddrCreator addr_creator_;
@@ -426,9 +441,8 @@ ASIOMessageManagerTest::sendTCPCheck(int listen_fd, int udp_fd,
     // Accept the connection
     sockaddr_storage ss;
     socklen_t sa_len = sizeof(ss);
-    const ScopedSocket accept_s(accept(listen_fd, convertSockAddr(&ss),
-                                       &sa_len));
-    ASSERT_NE(-1, accept_s.fd);
+    accept_s_.reset(accept(listen_fd, convertSockAddr(&ss), &sa_len));
+    ASSERT_NE(-1, accept_s_.fd);
 
     // Send data from the UDP test socket, receive on the given UDP socket,
     // and then send the data back.  This way we can be called back from
@@ -437,7 +451,7 @@ ASIOMessageManagerTest::sendTCPCheck(int listen_fd, int udp_fd,
         asio_manager_.createMessageSocket(
             IPPROTO_UDP, addr, port,
             boost::bind(&ASIOMessageManagerTest::callbackForTCPTest, this,
-                        _1, accept_s.fd, send_response)));
+                        _1, accept_s_.fd, send_response)));
     udp_sock->send(TEST_DATA, sizeof(TEST_DATA));
     char recvbuf[sizeof(TEST_DATA)];
     sa_len = sizeof(ss);
@@ -459,7 +473,7 @@ TEST_F(ASIOMessageManagerTest, sendCallbackUDPIPv6) {
                                      getSockAddr("::1", "5306")));
     EXPECT_EQ(0, sendcallback_called_);
     sendUDPCheck(recv_s.fd, "::1", 5306,
-              boost::bind(&ASIOMessageManagerTest::sendCallback, this, _1));
+              boost::bind(&ASIOMessageManagerTest::sendUDPCallback, this, _1));
     EXPECT_EQ(0, sendcallback_called_); // callback still shouldn't be called
     asio_manager_.run();
     EXPECT_EQ(1, sendcallback_called_);
@@ -471,7 +485,7 @@ TEST_F(ASIOMessageManagerTest, sendCallbackUDPIPv4) {
                                      getSockAddr("127.0.0.1", "5304")));
     EXPECT_EQ(0, sendcallback_called_);
     sendUDPCheck(recv_s.fd, "127.0.0.1", 5304,
-              boost::bind(&ASIOMessageManagerTest::sendCallback, this, _1));
+              boost::bind(&ASIOMessageManagerTest::sendUDPCallback, this, _1));
     EXPECT_EQ(0, sendcallback_called_);
     asio_manager_.run();
     EXPECT_EQ(1, sendcallback_called_);
@@ -496,7 +510,8 @@ TEST_F(ASIOMessageManagerTest, sendCallbackTCPIPv6) {
     ScopedSocket listen_s(createSocket(AF_INET6, SOCK_STREAM, IPPROTO_TCP,
                                        getSockAddr("::1", "5306")));
     sendTCPCheck(listen_s.fd, udp_s.fd, "::1", 5306, true,
-                 boost::bind(&ASIOMessageManagerTest::sendCallback, this, _1));
+                 boost::bind(&ASIOMessageManagerTest::sendTCPCallback, this,
+                             _1));
     EXPECT_EQ(1, sendcallback_called_);
 }
 
@@ -516,7 +531,8 @@ TEST_F(ASIOMessageManagerTest, sendCallbackTCPIPv4) {
     ScopedSocket listen_s(createSocket(AF_INET, SOCK_STREAM, IPPROTO_TCP,
                                        getSockAddr("127.0.0.1", "5304")));
     sendTCPCheck(listen_s.fd, udp_s.fd, "127.0.0.1", 5304, true,
-                 boost::bind(&ASIOMessageManagerTest::sendCallback, this, _1));
+                 boost::bind(&ASIOMessageManagerTest::sendUDPCallback, this,
+                             _1));
     EXPECT_EQ(1, sendcallback_called_);
 }
 
@@ -525,9 +541,11 @@ TEST_F(ASIOMessageManagerTest, multipleSends) {
                                      getSockAddr("::1", "5306")));
     EXPECT_EQ(0, sendcallback_called_);
     sendUDPCheck(recv_s.fd, "::1", 5306,
-                 boost::bind(&ASIOMessageManagerTest::sendCallback, this, _1));
+                 boost::bind(&ASIOMessageManagerTest::sendUDPCallback, this,
+                             _1));
     sendUDPCheck(recv_s.fd, "::1", 5306,
-                 boost::bind(&ASIOMessageManagerTest::sendCallback, this, _1));
+                 boost::bind(&ASIOMessageManagerTest::sendUDPCallback, this,
+                             _1));
     asio_manager_.run();
     EXPECT_EQ(2, sendcallback_called_);
 }

@@ -199,7 +199,11 @@ protected:
     // Common callback for the message socket.
     void sendCallback(const MessageSocket::Event& ev) {
         ++sendcallback_called_;
-        if (helpercallback_called_ == 1) {
+        // In the TCP test, a complete response message hasn't be sent
+        // until callbackForTCPTest is called at least 4 times.  See that
+        // function.
+        // (helpercallback_called_ should be 0 for UDP)
+        if (helpercallback_called_ > 0 && helpercallback_called_ <= 3) {
             EXPECT_EQ(0, ev.datalen);
         } else {
             EXPECT_EQ(sizeof(TEST_DATA), ev.datalen);
@@ -417,6 +421,7 @@ ASIOMessageManagerTest::callbackForTCPTest(const MessageSocket::Event&,
     char lenbuf[2];
     ASSERT_GE(sizeof(lenbuf), 2);
     char databuf[sizeof(TEST_DATA)];
+    const char* const DUMMY_DATA = "dummy data";
 
     switch (helpercallback_called_) {
     case 1:
@@ -443,6 +448,15 @@ ASIOMessageManagerTest::callbackForTCPTest(const MessageSocket::Event&,
         // send response, 2nd part (the message)
         EXPECT_EQ(sizeof(TEST_DATA), send(tcp_fd, TEST_DATA, sizeof(TEST_DATA),
                                           0));
+        break;
+    default:
+        // additional message.  Using different content so we can confirm
+        // whether the first one will appear in the callback.
+        lenbuf[0] = 0;
+        lenbuf[1] = sizeof(DUMMY_DATA);
+        EXPECT_EQ(sizeof(lenbuf), send(tcp_fd, lenbuf, sizeof(lenbuf), 0));
+        EXPECT_EQ(sizeof(DUMMY_DATA), send(tcp_fd, DUMMY_DATA,
+                                           sizeof(DUMMY_DATA), 0));
         break;
     }
 
@@ -532,11 +546,28 @@ TEST_F(ASIOMessageManagerTest, sendTCPIPv6) {
     EXPECT_EQ(1, sendcallback_called_);
 }
 
-TEST_F(ASIOMessageManagerTest, sendCallbackTCPIPv6) {
+TEST_F(ASIOMessageManagerTest, sendTCPIPv6Partial) {
+    // We'll stop sending after sending length
     ScopedSocket listen_s(createSocket(AF_INET6, SOCK_STREAM, IPPROTO_TCP,
                                        getSockAddr("::1", "5306")));
-    // We'll call callbackForTCPTest 5 times, at which point the process will
+    sendTCPCheck(listen_s.fd, AF_INET6, "::1", "5306", 3);
+    EXPECT_EQ(1, sendcallback_called_);
+}
+
+TEST_F(ASIOMessageManagerTest, sendTCPIPv6Complete) {
+    ScopedSocket listen_s(createSocket(AF_INET6, SOCK_STREAM, IPPROTO_TCP,
+                                       getSockAddr("::1", "5306")));
+    // We'll call callbackForTCPTest 4 times, at which point the process will
     // be completed.
+    sendTCPCheck(listen_s.fd, AF_INET6, "::1", "5306", 4);
+    EXPECT_EQ(1, sendcallback_called_);
+}
+
+TEST_F(ASIOMessageManagerTest, sendTCPIPv6Multi) {
+    ScopedSocket listen_s(createSocket(AF_INET6, SOCK_STREAM, IPPROTO_TCP,
+                                       getSockAddr("::1", "5306")));
+    // We'll call callbackForTCPTest one more than the previous case, which
+    // will result in two response messages.
     sendTCPCheck(listen_s.fd, AF_INET6, "::1", "5306", 5);
     EXPECT_EQ(1, sendcallback_called_);
 }
@@ -548,14 +579,28 @@ TEST_F(ASIOMessageManagerTest, sendTCPIPv4) {
     EXPECT_EQ(1, sendcallback_called_);
 }
 
+TEST_F(ASIOMessageManagerTest, sendTCPIPv4Partial) {
+    ScopedSocket listen_s(createSocket(AF_INET, SOCK_STREAM, IPPROTO_TCP,
+                                       getSockAddr("127.0.0.1", "5304")));
+    sendTCPCheck(listen_s.fd, AF_INET, "127.0.0.1", "5304", 3);
+    EXPECT_EQ(1, sendcallback_called_);
+}
+
 TEST_F(ASIOMessageManagerTest, sendCallbackTCPIPv4) {
+    ScopedSocket listen_s(createSocket(AF_INET, SOCK_STREAM, IPPROTO_TCP,
+                                       getSockAddr("127.0.0.1", "5304")));
+    sendTCPCheck(listen_s.fd, AF_INET, "127.0.0.1", "5304", 4);
+    EXPECT_EQ(1, sendcallback_called_);
+}
+
+TEST_F(ASIOMessageManagerTest, sendTCPIPv4Multi) {
     ScopedSocket listen_s(createSocket(AF_INET, SOCK_STREAM, IPPROTO_TCP,
                                        getSockAddr("127.0.0.1", "5304")));
     sendTCPCheck(listen_s.fd, AF_INET, "127.0.0.1", "5304", 5);
     EXPECT_EQ(1, sendcallback_called_);
 }
 
-TEST_F(ASIOMessageManagerTest, multipleSends) {
+TEST_F(ASIOMessageManagerTest, multipleUDPSends) {
     ScopedSocket recv_s(createSocket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP,
                                      getSockAddr("::1", "5306")));
     EXPECT_EQ(0, sendcallback_called_);

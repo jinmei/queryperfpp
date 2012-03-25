@@ -196,13 +196,26 @@ TCPMessageSocket::handleReadLength(const asio::error_code& ec, size_t length) {
     const uint16_t msglen = msglen_placeholder_[0] * 256 +
         msglen_placeholder_[1];
     assert(sizeof(recvbuf_) >= msglen);
-    asio_sock_.async_receive(asio::buffer(recvbuf_, msglen),
+    assert(sizeof(aux_recvbuf_) >= msglen);
+    // Now we are going to receive the main message.  We keep the first
+    // message in recvbuf_ for callback, and hold others in the aux
+    // buffer only temporarily.
+    asio_sock_.async_receive(asio::buffer(
+                                 recvbuflen_ == 0 ? recvbuf_ : aux_recvbuf_,
+                                 msglen),
                              boost::bind(&TCPMessageSocket::handleReadData,
                                          this, _1, _2));
 }
 
 void
 TCPMessageSocket::handleReadData(const asio::error_code& ec, size_t length) {
+    if (ec == asio::error::eof) {
+        // We've received all messages.  This is an unexpected connection
+        // termination by the server.  Do the callback with what we've had
+        // so far anyway.
+        callback_(Event(recvbuf_, recvbuflen_));
+        return;
+    }
     if (ec) {
         throw MessageSocketError("unexpected failure on TCP socket read: " +
                                  ec.message());

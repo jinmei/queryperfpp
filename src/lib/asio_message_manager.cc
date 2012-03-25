@@ -119,7 +119,9 @@ private:
     tcp::socket asio_sock_;
     tcp::endpoint dest_;
     Callback callback_;
-    uint8_t recvbuf_[65535];
+    uint8_t recvbuf_[65535];     // for the first message
+    size_t recvbuflen_;  // actual message length of the first message
+    uint8_t aux_recvbuf_[65535]; // placeholder for subsequent messages
     uint8_t msglen_placeholder_[2];
     boost::array<asio::const_buffer, 2> sendbufs_;
 };
@@ -128,7 +130,8 @@ TCPMessageSocket::TCPMessageSocket(io_service& io_service,
                                    const string& address, uint16_t port,
                                    Callback callback) :
     asio_sock_(io_service),
-    dest_(asio::ip::address::from_string(address), port), callback_(callback)
+    dest_(asio::ip::address::from_string(address), port), callback_(callback),
+    recvbuflen_(0)
 {
     // Note: we don't even open the socket yet.
 }
@@ -175,6 +178,13 @@ TCPMessageSocket::handleWrite(const asio::error_code& ec, size_t) {
 
 void
 TCPMessageSocket::handleReadLength(const asio::error_code& ec, size_t length) {
+    if (ec == asio::error::eof) {
+        // We've received all messages.  Note that this includes the case
+        // where the server closes the connection without sending any message
+        // or with partial message.
+        callback_(Event(recvbuf_, recvbuflen_));
+        return;
+    }
     if (ec) {
         throw MessageSocketError("unexpected failure on socket read: " +
                                  ec.message());
@@ -197,8 +207,19 @@ TCPMessageSocket::handleReadData(const asio::error_code& ec, size_t length) {
         throw MessageSocketError("unexpected failure on TCP socket read: " +
                                  ec.message());
     }
-    callback_(Event(recvbuf_, length));
-    // Unlike the UDP case, we don't continue read unless requested later.
+    // If this is the first message, remember its length.
+    if (recvbuflen_ == 0) {
+        recvbuflen_ = length;
+    }
+
+    // There may be more messages, like in the case for AXFR or large IXFR
+    // For now, we'll simply read and discard any subsequent message until
+    // the server closes the connection, at which point we return the control
+    // to the original caller with a callback.
+    asio_sock_.async_receive(asio::buffer(msglen_placeholder_,
+                                          sizeof(msglen_placeholder_)),
+                             boost::bind(&TCPMessageSocket::handleReadLength,
+                                         this, _1, _2));
 }
 
 struct ASIOMessageManager::ASIOMessageManagerImpl {

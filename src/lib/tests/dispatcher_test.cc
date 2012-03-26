@@ -31,6 +31,7 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 
 #include <sstream>
+#include <vector>
 
 #include <netinet/in.h>
 
@@ -50,7 +51,9 @@ protected:
 
 private:
     stringstream ss;
-    QueryRepository repo;
+protected:
+    QueryRepository repo; // protected so we can change protocol from test
+private:
     QueryContextCreator ctx_creator;
 
 protected:
@@ -62,16 +65,11 @@ public:
 };
 
 void
-initialQueryCheck(DispatcherTest* test) {
-    // Examine the queries recorded in the manager and check if these are
-    // the expected ones.
-
-    ASSERT_TRUE(test->msg_mgr.socket_);
-    // There should be 20 initial queries queued.
-    EXPECT_EQ(20, test->msg_mgr.socket_->queries_.size());
+initialTimerCheck(DispatcherTest* test) {
     // Each of the queries have associated timers, following the session timer.
     // All timers should have just started.
     EXPECT_EQ(21, test->msg_mgr.timers_.size());
+
     for (vector<TestMessageTimer*>::const_iterator it =
              test->msg_mgr.timers_.begin();
          it != test->msg_mgr.timers_.end();
@@ -84,6 +82,17 @@ initialQueryCheck(DispatcherTest* test) {
             EXPECT_EQ(5, (*it)->duration_seconds_);
         }
     }
+}
+
+void
+initialQueryCheck(DispatcherTest* test) {
+    // Examine the queries recorded in the manager and check if these are
+    // the expected ones.
+
+    ASSERT_TRUE(test->msg_mgr.socket_);
+    // There should be 20 initial queries queued.
+    EXPECT_EQ(20, test->msg_mgr.socket_->queries_.size());
+
     for (size_t i = 0; i < test->msg_mgr.socket_->queries_.size(); ++i) {
         queryMessageCheck(*test->msg_mgr.socket_->queries_[i], i,
                           (i % 2) == 0 ? Name("example.com") :
@@ -92,9 +101,39 @@ initialQueryCheck(DispatcherTest* test) {
                           RRType::A());
     }
 
+    initialTimerCheck(test);
+
     // Stop the manager
     test->msg_mgr.stop();
 }
+
+void
+initialTCPQueryCheck(DispatcherTest* test) {
+    // UDP socket is always created, but in this scenario it's not used
+    ASSERT_TRUE(test->msg_mgr.socket_);
+    EXPECT_EQ(0, test->msg_mgr.socket_->queries_.size());
+
+    // There should be 20 TCP sockets created, each has exactly one query.
+    EXPECT_EQ(20, test->msg_mgr.tcp_sockets_.size());
+    size_t i = 0;
+    for (vector<TestMessageSocket*>::const_iterator s =
+             test->msg_mgr.tcp_sockets_.begin();
+         s != test->msg_mgr.tcp_sockets_.end();
+         ++s, ++i) {
+        EXPECT_EQ(1, (*s)->queries_.size());
+        queryMessageCheck(*(*s)->queries_[0], i,
+                          (i % 2) == 0 ? Name("example.com") :
+                          Name("www.example.com"),
+                          (i % 2) == 0 ? RRType::SOA() :
+                          RRType::A());
+    }
+
+    initialTimerCheck(test);
+
+    // Stop the manager
+    test->msg_mgr.stop();
+}
+
 
 TEST_F(DispatcherTest, initialQueries) {
     msg_mgr.setRunHandler(boost::bind(initialQueryCheck, this));
@@ -105,19 +144,46 @@ TEST_F(DispatcherTest, initialQueries) {
     EXPECT_EQ(0, disp.getQueriesCompleted());
 }
 
+TEST_F(DispatcherTest, initialTCPQueries) {
+    msg_mgr.setRunHandler(boost::bind(initialTCPQueryCheck, this));
+    repo.setProtocol(IPPROTO_TCP);
+
+    EXPECT_EQ(0, disp.getQueriesSent());
+    EXPECT_EQ(0, disp.getQueriesCompleted());
+    disp.run();
+    EXPECT_EQ(20, disp.getQueriesSent());
+    EXPECT_EQ(0, disp.getQueriesCompleted());
+    // No timeout or response yet, so all TCP sockets are still active.
+    EXPECT_EQ(0, msg_mgr.n_deleted_sockets_);
+}
+
 void
-respondToQuery(TestMessageManager* mgr, size_t qid) {
+respondToQuery(TestMessageManager* mgr, size_t qid, int proto) {
     // Respond to the specified position of query
-    Message& query = *mgr->socket_->queries_.at(qid);
+    Message& query = (proto == IPPROTO_UDP) ? *mgr->socket_->queries_.at(qid) :
+        *mgr->tcp_sockets_.at(qid)->queries_.at(0);
     query.makeResponse();
     MessageRenderer renderer;
     query.toWire(renderer);
-    mgr->socket_->callback_(MessageSocket::Event(renderer.getData(),
-                                                 renderer.getLength()));
+    if (proto == IPPROTO_UDP) {
+        mgr->socket_->callback_(MessageSocket::Event(renderer.getData(),
+                                                     renderer.getLength()));
+    } else {
+        mgr->tcp_sockets_.at(qid)->callback_(
+            MessageSocket::Event(renderer.getData(), renderer.getLength()));
+    }
 
-    // Another query should have been sent immediatelly, and should be
+    // Another query should have been sent immediately, and should be
     // recorded in the manager.
-    EXPECT_EQ(21 + qid, mgr->socket_->queries_.size());
+    if (proto == IPPROTO_UDP) {
+        EXPECT_EQ(21 + qid, mgr->socket_->queries_.size());
+    } else {
+        EXPECT_EQ(21 + qid, mgr->tcp_sockets_.size());
+
+        // In the case of TCP, the completed TCP sockets should have been
+        // deleted.
+        EXPECT_EQ(1 + qid, mgr->n_deleted_sockets_);
+    }
 
     // The corresponding timer should have been restarted.
     EXPECT_EQ((qid / 20) + 2, mgr->timers_.at((qid % 20) + 1)->n_started_);
@@ -125,14 +191,15 @@ respondToQuery(TestMessageManager* mgr, size_t qid) {
     // Continue this until we respond to all initial queries and the first
     // query in the second round.
     if (qid < 20) {
-        mgr->setRunHandler(boost::bind(respondToQuery, mgr, qid + 1));
+        mgr->setRunHandler(boost::bind(respondToQuery, mgr, qid + 1, proto));
     } else {
         mgr->stop();
     }
 }
 
 TEST_F(DispatcherTest, nextQuery) {
-    msg_mgr.setRunHandler(boost::bind(respondToQuery, &msg_mgr, 0));
+    msg_mgr.setRunHandler(boost::bind(respondToQuery, &msg_mgr, 0,
+                                      IPPROTO_UDP));
     disp.run();
 
     // On completion, the first 20 and an additional one query has been
@@ -140,6 +207,23 @@ TEST_F(DispatcherTest, nextQuery) {
     EXPECT_EQ(41, msg_mgr.socket_->queries_.size());
     for (size_t i = 21; i < msg_mgr.socket_->queries_.size(); ++i) {
         queryMessageCheck(*msg_mgr.socket_->queries_[i], i,
+                          (i % 2) == 0 ? Name("example.com") :
+                          Name("www.example.com"),
+                          (i % 2) == 0 ? RRType::SOA() :
+                          RRType::A());
+    }
+}
+
+TEST_F(DispatcherTest, nextQueryTCP) {
+    // Same test as the previous one, but for TCP
+    msg_mgr.setRunHandler(boost::bind(respondToQuery, &msg_mgr, 0,
+                                      IPPROTO_TCP));
+    repo.setProtocol(IPPROTO_TCP);
+    disp.run();
+
+    EXPECT_EQ(41, msg_mgr.tcp_sockets_.size());
+    for (size_t i = 21; i < msg_mgr.tcp_sockets_.size(); ++i) {
+        queryMessageCheck(*msg_mgr.tcp_sockets_.at(i)->queries_[0], i,
                           (i % 2) == 0 ? Name("example.com") :
                           Name("www.example.com"),
                           (i % 2) == 0 ? RRType::SOA() :
@@ -271,7 +355,7 @@ TEST_F(DispatcherTest, setQclass) {
 }
 
 TEST_F(DispatcherTest, setQclassForExternalRepository) {
-    // qclass cannot be speicified for external query repository
+    // qclass cannot be specified for external query repository
     EXPECT_THROW(disp.setDefaultQueryClass("CH"), DispatcherError);
 }
 

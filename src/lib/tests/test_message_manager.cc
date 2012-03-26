@@ -22,8 +22,11 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 
+#include <cassert>
 #include <memory>
 #include <stdexcept>
+
+#include <netinet/in.h>
 
 using namespace std;
 using namespace isc::util;
@@ -38,6 +41,10 @@ const size_t MAX_RUN_LOOP = 1000;
 
 namespace Queryperf {
 namespace unittest {
+
+TestMessageSocket::~TestMessageSocket() {
+    ++manager_->n_deleted_sockets_;
+}
 
 void
 TestMessageSocket::send(const void* data, size_t datalen) {
@@ -59,14 +66,26 @@ TestMessageTimer::cancel() {
 }
 
 MessageSocket*
-TestMessageManager::createMessageSocket(int, const std::string&, uint16_t,
+TestMessageManager::createMessageSocket(int proto,
+                                        const std::string&, uint16_t,
                                         MessageSocket::Callback callback)
 {
-    if (socket_ != NULL) {
-        throw runtime_error("duplicate socket creation");
+    TestMessageSocket* ret;
+    if (proto == IPPROTO_UDP) {
+        if (socket_ != NULL) {
+            throw runtime_error("duplicate socket creation");
+        }
+        socket_ = new TestMessageSocket(callback);
+        ret = socket_;
+    } else {
+        assert(proto == IPPROTO_TCP);
+        auto_ptr<TestMessageSocket> p(new TestMessageSocket(callback));
+        tcp_sockets_.push_back(p.get());
+        ret = p.release();   // give the ownership
     }
-    socket_ = new TestMessageSocket(callback);
-    return (socket_);
+
+    ret->manager_ = this;
+    return (ret);
 }
 
 MessageTimer*

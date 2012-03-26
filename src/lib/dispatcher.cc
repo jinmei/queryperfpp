@@ -55,10 +55,12 @@ public:
                RestartCallback restart_callback) :
         ctx_(ctx), qid_(qid), restart_callback_(restart_callback),
         timer_(mgr.createMessageTimer(
-                   boost::bind(&QueryEvent::queryTimerCallback, this)))
+                   boost::bind(&QueryEvent::queryTimerCallback, this))),
+        tcp_sock_(NULL)
     {}
 
     ~QueryEvent() {
+        delete tcp_sock_;
         delete ctx_;
     }
 
@@ -69,7 +71,20 @@ public:
         return (ctx_->start(qid_));
     }
 
+    qid_t getQid() const { return (qid_); }
+
     bool matchResponse(qid_t qid) const { return (qid_ == qid); }
+
+    void setTCPSocket(MessageSocket* tcp_sock) {
+        assert(tcp_sock_ == NULL);
+        tcp_sock_ = tcp_sock;
+    }
+
+    void clearTCPSocket() {
+        assert(tcp_sock_ != NULL);
+        delete tcp_sock_;
+        tcp_sock_ = NULL;
+    }
 
 private:
     void queryTimerCallback() {
@@ -81,6 +96,7 @@ private:
     qid_t qid_;
     RestartCallback restart_callback_;
     shared_ptr<MessageTimer> timer_;
+    MessageSocket* tcp_sock_;
 };
 
 typedef shared_ptr<QueryEvent> QueryEventPtr;
@@ -136,8 +152,29 @@ struct Dispatcher::DispatcherImpl {
     // delivered.
     void responseCallback(const MessageSocket::Event& sockev);
 
+    void responseTCPCallback(const MessageSocket::Event& sockev,
+                             QueryEvent* qev);
+
     // Generate next query either due to completion or timeout.
     void restartQuery(qid_t qid, const Message* response);
+
+    // A subroutine commonly used to send a single query.
+    void sendQuery(QueryEvent& qev, const QueryContext::QuerySpec& qry_spec) {
+        if (qry_spec.proto == IPPROTO_UDP) {
+            udp_socket_->send(qry_spec.data, qry_spec.len);
+        } else {
+            MessageSocket* tcp_sock =
+                msg_mgr_->createMessageSocket(
+                    IPPROTO_TCP, server_address_, server_port_,
+                    boost::bind(&DispatcherImpl::responseTCPCallback, this,
+                                _1, &qev));
+                qev.setTCPSocket(tcp_sock);
+                tcp_sock->send(qry_spec.data, qry_spec.len);
+        }
+
+        ++queries_sent_;
+        ++qid_;
+    }
 
     // Callback from the message manager on expiration of the session timer.
     // Stop sending more queries; only wait for outstanding ones.
@@ -171,7 +208,6 @@ struct Dispatcher::DispatcherImpl {
     qid_t qid_;
     Message response_;          // placeholder for response messages
     list<shared_ptr<QueryEvent> > outstanding_;
-    //list<> available_;
 
     // statistics
     size_t queries_sent_;
@@ -207,10 +243,7 @@ Dispatcher::DispatcherImpl::run() {
     // Record the start time and dispatch initial queries at once.
     start_time_ = microsec_clock::local_time();
     BOOST_FOREACH(shared_ptr<QueryEvent>& qev, outstanding_) {
-        QueryContext::QuerySpec qry_spec = qev->start(qid_, query_timeout_);
-        udp_socket_->send(qry_spec.data, qry_spec.len);
-        ++queries_sent_;
-        ++qid_;
+        sendQuery(*qev, qev->start(qid_, query_timeout_));
     }
 
     // Enter the event loop.
@@ -231,6 +264,24 @@ Dispatcher::DispatcherImpl::responseCallback(
 }
 
 void
+Dispatcher::DispatcherImpl::responseTCPCallback(
+    const MessageSocket::Event& sockev, QueryEvent* qev)
+{
+    qev->clearTCPSocket();
+
+    if (sockev.datalen > 0) {
+        // Parse the header of the response
+        InputBuffer buffer(sockev.data, sockev.datalen);
+        response_.clear(Message::PARSE);
+        response_.parseHeader(buffer);
+    } else {
+        cout << "[Fail] TCP connection terminated unexpectedly" << endl;
+    }
+
+    restartQuery(qev->getQid(), sockev.datalen > 0 ? &response_ : NULL);
+}
+
+void
 Dispatcher::DispatcherImpl::restartQuery(qid_t qid, const Message* response) {
     // Identify the matching query from the outstanding queue.
     const list<shared_ptr<QueryEvent> >::iterator qev_it =
@@ -244,11 +295,7 @@ Dispatcher::DispatcherImpl::restartQuery(qid_t qid, const Message* response) {
 
         // If necessary, create a new query and dispatch it.
         if (keep_sending_) {
-            QueryContext::QuerySpec qry_spec = (*qev_it)->start(
-                qid_, query_timeout_);
-            udp_socket_->send(qry_spec.data, qry_spec.len);
-            ++queries_sent_;
-            ++qid_;
+            sendQuery(**qev_it, (*qev_it)->start(qid_, query_timeout_));
 
             // Move this context to the end of the queue.
             outstanding_.splice(qev_it, outstanding_, outstanding_.end());

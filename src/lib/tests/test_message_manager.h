@@ -39,11 +39,18 @@ class TestMessageManager;
 
 class TestMessageSocket : public MessageSocket, private boost::noncopyable {
 public:
-    TestMessageSocket(Callback callback) : callback_(callback) {}
+    friend class TestMessageManager;
+    TestMessageSocket(Callback callback) : callback_(callback),
+                                           manager_(NULL)
+    {}
+    ~TestMessageSocket();
     virtual void send(const void* data, size_t datalen);
 
     std::vector<boost::shared_ptr<isc::dns::Message> > queries_;
     Callback callback_;
+
+private:
+    TestMessageManager* manager_;
 };
 
 class TestMessageTimer : public MessageTimer, private boost::noncopyable {
@@ -64,7 +71,8 @@ class TestMessageManager : public MessageManager, private boost::noncopyable {
 public:
     typedef boost::function<void()> Handler;
 
-    TestMessageManager() : socket_(NULL), running_(false) {}
+    TestMessageManager() : socket_(NULL), tcp_sockets_(NULL),
+                           n_deleted_sockets_(0), running_(false) {}
 
     virtual MessageSocket* createMessageSocket(
         int proto, const std::string& address, uint16_t port,
@@ -78,8 +86,12 @@ public:
 
     void setRunHandler(Handler handler) { run_handler_ = handler; }
 
-    // Use a fixed internal socket object.
+    // Use a fixed internal UDP socket object.
     TestMessageSocket* socket_;
+
+    // TCP sockets
+    std::vector<TestMessageSocket*> tcp_sockets_;
+    size_t n_deleted_sockets_;
 
     // Timers created in this manager.
     std::vector<TestMessageTimer*> timers_;

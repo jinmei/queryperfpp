@@ -91,6 +91,8 @@ struct QueryRepository::QueryRepositoryImpl {
         // thread contention.
         aux_typemap_["A6"] = "TYPE38";
         aux_typemap_["ANY"] = "TYPE255";
+        aux_typemap_["AXFR"] = "TYPE252";
+        aux_typemap_["IXFR"] = "TYPE251";
     }
 
     // Extract the next question from the input stream

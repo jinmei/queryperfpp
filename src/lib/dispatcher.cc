@@ -90,7 +90,10 @@ private:
     void queryTimerCallback() {
         cout << "[Timeout] Query timed out: msg id: " << qid_ << endl;
         if (tcp_sock_ != NULL) {
-            clearTCPSocket();
+            // Cancel the operation, and release the ownership.  The socket
+            // will destruct itself.
+            tcp_sock_->cancel();
+            tcp_sock_ = NULL;
         }
         restart_callback_(qid_, NULL);
     }

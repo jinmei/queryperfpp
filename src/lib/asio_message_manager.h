@@ -32,6 +32,7 @@ protected:
 public:
     virtual ~ASIOMessageSocket() {}
     virtual void send(const void* data, size_t datalen) = 0;
+    virtual void cancel() = 0;
 
     /// \brief Return the native socket descriptor.
     ///

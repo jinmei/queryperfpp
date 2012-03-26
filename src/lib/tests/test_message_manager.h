@@ -45,6 +45,7 @@ public:
     {}
     ~TestMessageSocket();
     virtual void send(const void* data, size_t datalen);
+    virtual void cancel();
 
     std::vector<boost::shared_ptr<isc::dns::Message> > queries_;
     Callback callback_;

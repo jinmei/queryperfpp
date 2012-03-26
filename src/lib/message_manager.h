@@ -60,6 +60,12 @@ public:
     virtual ~MessageSocket() {}
 
     virtual void send(const void* data, size_t datalen) = 0;
+
+    /// \brief Cancel any pending socket operation.
+    ///
+    /// This means the ownership is released from the caller.  The object
+    /// is responsible for destructing itself.
+    virtual void cancel() = 0;
 };
 
 /// \brief Timers that work with a \c MessageManager.

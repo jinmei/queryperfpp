@@ -39,6 +39,7 @@ public:
     UDPMessageSocket(io_service& io_service, const string& address,
                      uint16_t port, Callback callback);
     virtual void send(const void* data, size_t datalen);
+    virtual void cancel();
 
     virtual int native() { return (asio_sock_.native()); }
 
@@ -90,6 +91,12 @@ UDPMessageSocket::send(const void* data, size_t datalen) {
 }
 
 void
+UDPMessageSocket::cancel() {
+    // In our usage we don't need this.  We can postpone implementing it.
+    throw MessageSocketError("cancel on UDP socket is not supported yet");
+}
+
+void
 UDPMessageSocket::handleRead(const asio::error_code& ec, size_t length) {
     if (ec) {
         throw MessageSocketError("unexpected failure on socket read: " +
@@ -107,8 +114,17 @@ public:
                      io_service& io_service, const string& address,
                      uint16_t port, Callback callback);
     virtual void send(const void* data, size_t datalen);
-
+    virtual void cancel();
     virtual int native() { return (asio_sock_.native()); }
+    bool cancelCheck(const asio::error_code& ec) {
+        if (!cancelled_) {
+            return (false);
+        }
+        if (ec == asio::error::operation_aborted) {
+            delete this;
+        }
+        return (true);
+    }
 
 private:
     void handleConnect(const asio::error_code& ec);
@@ -127,6 +143,7 @@ private:
     uint8_t aux_recvbuf_[65535]; // placeholder for subsequent messages
     uint8_t msglen_placeholder_[2];
     boost::array<asio::const_buffer, 2> sendbufs_;
+    bool cancelled_;
 };
 
 TCPMessageSocket::TCPMessageSocket(ASIOMessageManager* manager,
@@ -135,7 +152,7 @@ TCPMessageSocket::TCPMessageSocket(ASIOMessageManager* manager,
                                    Callback callback) :
     manager_(manager), asio_sock_(io_service),
     dest_(asio::ip::address::from_string(address), port), callback_(callback),
-    recvbuflen_(0)
+    recvbuflen_(0), cancelled_(false)
 {
     // Note: we don't even open the socket yet.
 }
@@ -174,7 +191,17 @@ TCPMessageSocket::send(const void* data, size_t datalen) {
 }
 
 void
+TCPMessageSocket::cancel() {
+    assert(!cancelled_);
+    asio_sock_.cancel();
+    cancelled_ = true;
+}
+
+void
 TCPMessageSocket::handleConnect(const asio::error_code& ec) {
+    if (cancelCheck(ec)) {
+        return;
+    }
     if (ec) {
         cerr << "[Warn] TCP connect failed: " << ec.message() << endl;
         callback_(Event(NULL, 0));
@@ -187,6 +214,9 @@ TCPMessageSocket::handleConnect(const asio::error_code& ec) {
 
 void
 TCPMessageSocket::handleWrite(const asio::error_code& ec, size_t) {
+    if (cancelCheck(ec)) {
+        return;
+    }
     if (ec) {
         cerr << "[Warn] TCP send failed: " << ec.message() << endl;
         callback_(Event(NULL, 0));
@@ -211,6 +241,9 @@ TCPMessageSocket::handleWrite(const asio::error_code& ec, size_t) {
 
 void
 TCPMessageSocket::handleReadLength(const asio::error_code& ec, size_t length) {
+    if (cancelCheck(ec)) {
+        return;
+    }
     if (ec == asio::error::eof) {
         // We've received all messages.  Note that this includes the case
         // where the server closes the connection without sending any message
@@ -244,6 +277,9 @@ TCPMessageSocket::handleReadLength(const asio::error_code& ec, size_t length) {
 
 void
 TCPMessageSocket::handleReadData(const asio::error_code& ec, size_t length) {
+    if (cancelCheck(ec)) {
+        return;
+    }
     if (ec == asio::error::eof) {
         // We've received all messages.  This is an unexpected connection
         // termination by the server.  Do the callback with what we've had

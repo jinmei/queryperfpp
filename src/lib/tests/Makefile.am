@@ -11,7 +11,7 @@ run_unittests_SOURCES += asio_message_manager_test.cc
 run_unittests_SOURCES += test_message_manager.h test_message_manager.cc
 run_unittests_SOURCES += common_test.h common_test.cc
 
-run_unittests_CPPFLAGS = $(AM_CPPFLAGS) $(GTEST_INCLUDES) $(BIND10_INCLUDES)
+run_unittests_CPPFLAGS = $(AM_CPPFLAGS) $(BOOST_INCLUDES) $(GTEST_INCLUDES) $(BIND10_INCLUDES)
 
 run_unittests_LDFLAGS = $(GTEST_LDFLAGS) $(BIND10_LDFLAGS) $(AM_LDFLAGS)
 

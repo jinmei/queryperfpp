@@ -184,7 +184,7 @@ noopTimerCallback() {
 }
 
 class ASIOMessageManagerTest : public ::testing::Test {
-protected:
+public:
     ASIOMessageManagerTest() : sendcallback_called_(0),
                                timercallback_called_(0),
                                helpercallback_called_(0),

@@ -198,8 +198,8 @@ respondToQuery(TestMessageManager* mgr, size_t qid, int proto) {
 }
 
 TEST_F(DispatcherTest, nextQuery) {
-    msg_mgr.setRunHandler(boost::bind(respondToQuery, &msg_mgr, 0,
-                                      IPPROTO_UDP));
+    const int proto = IPPROTO_UDP;
+    msg_mgr.setRunHandler(boost::bind(&respondToQuery, &msg_mgr, 0, proto));
     disp.run();
 
     // On completion, the first 20 and an additional one query has been
@@ -216,8 +216,8 @@ TEST_F(DispatcherTest, nextQuery) {
 
 TEST_F(DispatcherTest, nextQueryTCP) {
     // Same test as the previous one, but for TCP
-    msg_mgr.setRunHandler(boost::bind(respondToQuery, &msg_mgr, 0,
-                                      IPPROTO_TCP));
+    const int proto = IPPROTO_TCP;
+    msg_mgr.setRunHandler(boost::bind(respondToQuery, &msg_mgr, 0, proto));
     repo.setProtocol(IPPROTO_TCP);
     disp.run();
 
@@ -273,8 +273,8 @@ queryTimeoutCallback(TestMessageManager* mgr, int proto) {
 }
 
 TEST_F(DispatcherTest, queryTimeout) {
-    msg_mgr.setRunHandler(boost::bind(queryTimeoutCallback, &msg_mgr,
-                                      IPPROTO_UDP));
+    const int proto = IPPROTO_UDP;
+    msg_mgr.setRunHandler(boost::bind(queryTimeoutCallback, &msg_mgr, proto));
     disp.run();
 
     // No queries should have been considered completed.
@@ -283,8 +283,8 @@ TEST_F(DispatcherTest, queryTimeout) {
 
 TEST_F(DispatcherTest, queryTimeoutTCP) {
     // Same test as the previous one, but using TCP.
-    msg_mgr.setRunHandler(boost::bind(queryTimeoutCallback, &msg_mgr,
-                                      IPPROTO_TCP));
+    const int proto = IPPROTO_TCP;
+    msg_mgr.setRunHandler(boost::bind(queryTimeoutCallback, &msg_mgr, proto));
     repo.setProtocol(IPPROTO_TCP);
     disp.run();
 

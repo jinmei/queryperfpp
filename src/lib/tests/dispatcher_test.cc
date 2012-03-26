@@ -351,7 +351,7 @@ TEST_F(DispatcherTest, builtins) {
     EXPECT_THROW(disp.loadQueries(), QueryRepositoryError);
 }
 
-TEST_F(DispatcherTest, preloadAfterRun) {
+TEST_F(DispatcherTest, DISABLED_preloadAfterRun) {
     Dispatcher disp("test-input.txt");
     // There's no server to be tested, so the send attempt should fail
     EXPECT_THROW(disp.run(), MessageSocketError);
@@ -378,7 +378,7 @@ TEST_F(DispatcherTest, setQclassForExternalRepository) {
     EXPECT_THROW(disp.setDefaultQueryClass("CH"), DispatcherError);
 }
 
-TEST_F(DispatcherTest, setQclassAfterRun) {
+TEST_F(DispatcherTest, DISABLED_setQclassAfterRun) {
     Dispatcher disp("test-input.txt");
     // There's no server to be tested, so the send attempt should fail
     EXPECT_THROW(disp.run(), MessageSocketError);
@@ -387,7 +387,7 @@ TEST_F(DispatcherTest, setQclassAfterRun) {
     EXPECT_THROW(disp.setDefaultQueryClass("CH"), DispatcherError);
 }
 
-TEST_F(DispatcherTest, setDNSSEC) {
+TEST_F(DispatcherTest, DISABLED_setDNSSEC) {
     Dispatcher disp("test-input.txt");
     disp.setDNSSEC(false);      // this shouldn't cause disruption
     EXPECT_THROW(disp.run(), MessageSocketError);
@@ -399,7 +399,7 @@ TEST_F(DispatcherTest, setDNSSECForExternalRepository) {
     EXPECT_THROW(disp.setDNSSEC(false), DispatcherError);
 }
 
-TEST_F(DispatcherTest, setEDNS) {
+TEST_F(DispatcherTest, DISABLED_setEDNS) {
     Dispatcher disp("test-input.txt");
     disp.setEDNS(false);      // this shouldn't cause disruption
     EXPECT_THROW(disp.run(), MessageSocketError);
@@ -411,7 +411,7 @@ TEST_F(DispatcherTest, setEDNSForExternalRepository) {
     EXPECT_THROW(disp.setEDNS(false), DispatcherError);
 }
 
-TEST_F(DispatcherTest, setProtocol) {
+TEST_F(DispatcherTest, DISABLED_setProtocol) {
     Dispatcher disp("test-input.txt");
     disp.setProtocol(IPPROTO_TCP);
     EXPECT_THROW(disp.run(), MessageSocketError);

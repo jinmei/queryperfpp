@@ -117,6 +117,7 @@ private:
 
 private:
     tcp::socket asio_sock_;
+    asio::error_code asio_error_; // placeholder for getting ASIO error
     tcp::endpoint dest_;
     Callback callback_;
     uint8_t recvbuf_[65535];     // for the first message
@@ -151,8 +152,9 @@ TCPMessageSocket::send(const void* data, size_t datalen) {
 void
 TCPMessageSocket::handleConnect(const asio::error_code& ec) {
     if (ec) {
-        throw MessageSocketError("unexpected failure on socket connect: " +
-                                 ec.message());
+        cerr << "[Warn] TCP connect failed: " << ec.message() << endl;
+        callback_(Event(NULL, 0));
+        return;
     }
     asio::async_write(asio_sock_, sendbufs_,
                       boost::bind(&TCPMessageSocket::handleWrite, this,
@@ -162,12 +164,19 @@ TCPMessageSocket::handleConnect(const asio::error_code& ec) {
 void
 TCPMessageSocket::handleWrite(const asio::error_code& ec, size_t) {
     if (ec) {
-        throw MessageSocketError("unexpected failure on socket write: " +
-                                 ec.message());
+        cerr << "[Warn] TCP send failed: " << ec.message() << endl;
+        callback_(Event(NULL, 0));
+        return;
     }
     // Immediately after sending the query, shutdown the outbound direction
     // of the socket, so the server won't wait for subsequent queries.
-    asio_sock_.shutdown(tcp::socket::shutdown_send);
+    asio_sock_.shutdown(tcp::socket::shutdown_send, asio_error_);
+    if (asio_error_) {
+        cerr << "[Warn] failed to shut down TCP socket: "
+             << asio_error_.message() << endl;
+        callback_(Event(NULL, recvbuflen_));
+        return;
+    }
 
     // Then wait for the response.
     asio_sock_.async_receive(asio::buffer(msglen_placeholder_,
@@ -186,8 +195,10 @@ TCPMessageSocket::handleReadLength(const asio::error_code& ec, size_t length) {
         return;
     }
     if (ec) {
-        throw MessageSocketError("unexpected failure on socket read: " +
-                                 ec.message());
+        cerr << "[Warn] failed to read TCP message length: "
+             << ec.message() << endl;
+        callback_(Event(NULL, recvbuflen_));
+        return;
     }
     if (length != sizeof(msglen_placeholder_)) {
         throw MessageSocketError("received unexpected size of data for "
@@ -217,8 +228,9 @@ TCPMessageSocket::handleReadData(const asio::error_code& ec, size_t length) {
         return;
     }
     if (ec) {
-        throw MessageSocketError("unexpected failure on TCP socket read: " +
-                                 ec.message());
+        cerr << "[Warn] failed to read TCP message: " << ec.message() << endl;
+        callback_(Event(NULL, recvbuflen_));
+        return;
     }
     // If this is the first message, remember its length.
     if (recvbuflen_ == 0) {

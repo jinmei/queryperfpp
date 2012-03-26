@@ -71,7 +71,7 @@ class TestMessageManager : public MessageManager, private boost::noncopyable {
 public:
     typedef boost::function<void()> Handler;
 
-    TestMessageManager() : socket_(NULL), tcp_sockets_(NULL),
+    TestMessageManager() : socket_(NULL),
                            n_deleted_sockets_(0), running_(false) {}
 
     virtual MessageSocket* createMessageSocket(

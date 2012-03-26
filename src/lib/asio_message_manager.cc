@@ -103,7 +103,8 @@ UDPMessageSocket::handleRead(const asio::error_code& ec, size_t length) {
 
 class TCPMessageSocket : public ASIOMessageSocket {
 public:
-    TCPMessageSocket(io_service& io_service, const string& address,
+    TCPMessageSocket(ASIOMessageManager* manager,
+                     io_service& io_service, const string& address,
                      uint16_t port, Callback callback);
     virtual void send(const void* data, size_t datalen);
 
@@ -116,6 +117,7 @@ private:
     void handleReadData(const asio::error_code& ec, size_t length);
 
 private:
+    ASIOMessageManager* manager_;
     tcp::socket asio_sock_;
     asio::error_code asio_error_; // placeholder for getting ASIO error
     tcp::endpoint dest_;
@@ -127,10 +129,11 @@ private:
     boost::array<asio::const_buffer, 2> sendbufs_;
 };
 
-TCPMessageSocket::TCPMessageSocket(io_service& io_service,
+TCPMessageSocket::TCPMessageSocket(ASIOMessageManager* manager,
+                                   io_service& io_service,
                                    const string& address, uint16_t port,
                                    Callback callback) :
-    asio_sock_(io_service),
+    manager_(manager), asio_sock_(io_service),
     dest_(asio::ip::address::from_string(address), port), callback_(callback),
     recvbuflen_(0)
 {
@@ -144,6 +147,27 @@ TCPMessageSocket::send(const void* data, size_t datalen) {
     sendbufs_[0] = asio::buffer(msglen_placeholder_,
                                 sizeof(msglen_placeholder_));
     sendbufs_[1] = asio::buffer(data, datalen);
+
+    // TBD: error check
+#if 1
+    asio_sock_.open(dest_.protocol());
+    asio_sock_.set_option(tcp::acceptor::reuse_address(true));
+    for (size_t i = 0; i < 10; ++i) {
+        asio_sock_.bind(tcp::endpoint(dest_.address(),
+                                      manager_->getNextTCPPort()),
+                        asio_error_);
+        if (!asio_error_) {
+            break;
+        }
+    }
+    if (asio_error_) {
+        cerr << "[Warn] Failed to open TCP connection: "
+             << asio_error_.message() << endl;
+        callback_(Event(NULL, 0));
+        return;
+    }
+#endif
+
     asio_sock_.async_connect(dest_,
                              boost::bind(&TCPMessageSocket::handleConnect,
                                          this, _1));
@@ -237,7 +261,7 @@ TCPMessageSocket::handleReadData(const asio::error_code& ec, size_t length) {
         recvbuflen_ = length;
     }
 
-    // There may be more messages, like in the case for AXFR or large IXFR
+    // There may be more messages, like in the case for AXFR or large IX FR
     // For now, we'll simply read and discard any subsequent message until
     // the server closes the connection, at which point we return the control
     // to the original caller with a callback.
@@ -248,7 +272,24 @@ TCPMessageSocket::handleReadData(const asio::error_code& ec, size_t length) {
 }
 
 struct ASIOMessageManager::ASIOMessageManagerImpl {
+    ASIOMessageManagerImpl() :
+        tcp_port_(LOWEST_TCP_PORT)
+    {}
+
+    // This is the lowest non privileged port
+    static const uint16_t LOWEST_TCP_PORT = 1024;
+
+    uint16_t getNextTCPPort() {
+        const uint16_t port = tcp_port_;
+        if ((port % 10000) == 0) {
+            cout << "10K TCP ports examined: " << port << endl;
+        }
+        tcp_port_ = (port == 65535) ? LOWEST_TCP_PORT : (port + 1);
+        return (port);
+    }
+
     io_service io_service_;
+    uint16_t tcp_port_; // A TCP port which is likely to be available
 };
 
 ASIOMessageManager::ASIOMessageManager() :
@@ -271,7 +312,7 @@ ASIOMessageManager::createMessageSocket(int proto, const string& address,
         return (new UDPMessageSocket(impl_->io_service_, address, port,
                                      callback));
     } else if (proto == IPPROTO_TCP) {
-        return (new TCPMessageSocket(impl_->io_service_, address, port,
+        return (new TCPMessageSocket(this, impl_->io_service_, address, port,
                                      callback));
     }
     throw MessageSocketError("unsupported or invalid protocol: " +
@@ -330,6 +371,11 @@ ASIOMessageManager::run() {
 void
 ASIOMessageManager::stop() {
     impl_->io_service_.stop();
+}
+
+uint16_t
+ASIOMessageManager::getNextTCPPort() {
+    return (impl_->getNextTCPPort());
 }
 
 } // end of QueryPerf

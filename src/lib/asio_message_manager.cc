@@ -221,7 +221,7 @@ TCPMessageSocket::handleReadLength(const asio::error_code& ec, size_t length) {
     if (ec) {
         cerr << "[Warn] failed to read TCP message length: "
              << ec.message() << endl;
-        callback_(Event(NULL, recvbuflen_));
+        callback_(Event(NULL, 0));
         return;
     }
     if (length != sizeof(msglen_placeholder_)) {

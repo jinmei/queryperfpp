@@ -89,6 +89,9 @@ public:
 private:
     void queryTimerCallback() {
         cout << "[Timeout] Query timed out: msg id: " << qid_ << endl;
+        if (tcp_sock_ != NULL) {
+            clearTCPSocket();
+        }
         restart_callback_(qid_, NULL);
     }
 

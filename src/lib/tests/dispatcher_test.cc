@@ -255,18 +255,37 @@ TEST_F(DispatcherTest, queryMismatch) {
 }
 
 void
-queryTimeoutCallback(TestMessageManager* mgr) {
+queryTimeoutCallback(TestMessageManager* mgr, int proto) {
     // Do timeout callcack for the first query.
     mgr->timers_.at(1)->callback_();
 
     // Then another query should have been sent.
-    EXPECT_EQ(21, mgr->socket_->queries_.size());
+    if (proto == IPPROTO_UDP) {
+        EXPECT_EQ(21, mgr->socket_->queries_.size());
+    } else {
+        EXPECT_EQ(21, mgr->tcp_sockets_.size());
+
+        // The socket for the timed out query should have been deleted.
+        EXPECT_EQ(1, mgr->n_deleted_sockets_);
+    }
 
     mgr->stop();
 }
 
 TEST_F(DispatcherTest, queryTimeout) {
-    msg_mgr.setRunHandler(boost::bind(queryTimeoutCallback, &msg_mgr));
+    msg_mgr.setRunHandler(boost::bind(queryTimeoutCallback, &msg_mgr,
+                                      IPPROTO_UDP));
+    disp.run();
+
+    // No queries should have been considered completed.
+    EXPECT_EQ(0, disp.getQueriesCompleted());
+}
+
+TEST_F(DispatcherTest, queryTimeoutTCP) {
+    // Same test as the previous one, but using TCP.
+    msg_mgr.setRunHandler(boost::bind(queryTimeoutCallback, &msg_mgr,
+                                      IPPROTO_TCP));
+    repo.setProtocol(IPPROTO_TCP);
     disp.run();
 
     // No queries should have been considered completed.

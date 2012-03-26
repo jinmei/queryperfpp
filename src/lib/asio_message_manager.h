@@ -26,7 +26,7 @@
 
 namespace Queryperf {
 
-class ASIOMessageSocket : public MessageSocket, private boost::noncopyable {
+class ASIOMessageSocket : public MessageSocket {
 protected:
     ASIOMessageSocket() {}
 public:
@@ -39,7 +39,7 @@ public:
     virtual int native() = 0;
 };
 
-class ASIOMessageManager : public MessageManager, private boost::noncopyable {
+class ASIOMessageManager : public MessageManager {
 public:
     ASIOMessageManager();
 

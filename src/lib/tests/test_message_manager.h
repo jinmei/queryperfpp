@@ -37,7 +37,7 @@ namespace unittest {
 
 class TestMessageManager;
 
-class TestMessageSocket : public MessageSocket, private boost::noncopyable {
+class TestMessageSocket : public MessageSocket {
 public:
     friend class TestMessageManager;
     TestMessageSocket(Callback callback) : callback_(callback),
@@ -53,7 +53,7 @@ private:
     TestMessageManager* manager_;
 };
 
-class TestMessageTimer : public MessageTimer, private boost::noncopyable {
+class TestMessageTimer : public MessageTimer {
 public:
     TestMessageTimer(Callback callback) :
         callback_(callback), n_started_(0), duration_seconds_(0)
@@ -67,7 +67,7 @@ public:
     long duration_seconds_;
 };
 
-class TestMessageManager : public MessageManager, private boost::noncopyable {
+class TestMessageManager : public MessageManager {
 public:
     typedef boost::function<void()> Handler;
 

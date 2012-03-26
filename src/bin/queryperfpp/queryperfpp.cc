@@ -25,6 +25,8 @@
 #include <vector>
 #include <stdexcept>
 
+#include <netinet/in.h>
+
 #include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>
@@ -63,12 +65,13 @@ usage() {
     cerr << usage_head
          << "[-C qclass] [-d datafile] [-D on|off] [-e on|off] [-l limit]\n";
     cerr << indent
-         << "[-L] [-n #threads] [-s server_addr] [-p port]\n";
+         << "[-L] [-n #threads] [-s server_addr] [-p port] [-P udp|tcp]\n";
     cerr << indent
          << "[-Q query_sequence]\n";
     cerr << "  -C specifies default query class (default: \"IN\")\n";
     cerr << "  -D specifies whether to set EDNS DO bit (default: \"on\")\n";
     cerr << "  -e specifies whether to include EDNS (default: \"on\")\n";
+    cerr << "  -P specifies transport protocol for queries (default: \"udp\")\n";
     cerr << "  -Q specifies NL-separated query data in command line (default: unuspecified)";
     cerr << endl;
     exit(1);
@@ -118,6 +121,7 @@ main(int argc, char* argv[]) {
     const char* dnssec_flag_txt = NULL;
     const char* edns_flag_txt = NULL;
     const char* server_address = NULL;
+    const char* proto_txt = "udp";
     const char* server_port_txt = NULL;
     const char* time_limit_txt = NULL;
     const char* num_threads_txt = NULL;
@@ -126,7 +130,7 @@ main(int argc, char* argv[]) {
     bool preload = false;
 
     int ch;
-    while ((ch = getopt(argc, argv, "C:d:D:e:hl:Ln:p:Q:s:")) != -1) {
+    while ((ch = getopt(argc, argv, "C:d:D:e:hl:Ln:p:P:Q:s:")) != -1) {
         switch (ch) {
         case 'C':
             qclass_txt = optarg;
@@ -149,6 +153,9 @@ main(int argc, char* argv[]) {
         case 'p':
             server_port_txt = optarg;
             break;
+        case 'P':
+            proto_txt = optarg;
+            break;
         case 'Q':
             query_txt = optarg;
             break;
@@ -164,6 +171,8 @@ main(int argc, char* argv[]) {
             usage();
         }
     }
+
+    // Validation on options
     if (data_file == NULL && query_txt == NULL) {
         data_file = DEFAULT_DATA_FILE;
     }
@@ -178,6 +187,12 @@ main(int argc, char* argv[]) {
         cerr << "[WARN] EDNS is disabled but DNSSEC is enabled; "
              << "EDNS will still be included." << endl;
     }
+    const string proto_str(proto_txt);
+    if (proto_str != "udp" && proto_str != "tcp") {
+        cerr << "Invalid protocol: " << proto_str << endl;
+        return (1);
+    }
+    const int proto = proto_str == "udp" ? IPPROTO_UDP : IPPROTO_TCP;
 
     try {
         vector<DispatcherPtr> dispatchers;
@@ -215,6 +230,8 @@ main(int argc, char* argv[]) {
             }
             disp->setDNSSEC(dnssec_flag);
             disp->setEDNS(edns_flag);
+            disp->setProtocol(proto);
+            // Preload must be the final step of configuration before running.
             if (preload) {
                 disp->loadQueries();
             }

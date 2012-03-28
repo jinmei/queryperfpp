@@ -23,6 +23,7 @@
 #include <boost/lexical_cast.hpp>
 
 #include <string>
+#include <iostream>
 
 #include <stdint.h>
 

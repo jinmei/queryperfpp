@@ -265,6 +265,7 @@ public:
     scoped_ptr<MessageSocket> udp_sock_; // auxiliary socket used in TCP test
     scoped_ptr<MessageTimer> test_timer_;
     ScopedSocket accept_s_;
+    uint8_t recvbuf_[65535];
 
 private:
     SockAddrCreator addr_creator_;
@@ -274,7 +275,8 @@ TEST_F(ASIOMessageManagerTest, createMessageSocketIPv6) {
     scoped_ptr<ASIOMessageSocket> sock(
         dynamic_cast<ASIOMessageSocket*>(
             asio_manager_.createMessageSocket(
-                IPPROTO_UDP, "::1", 5300, noopSocketCallback)));
+                IPPROTO_UDP, "::1", 5300, recvbuf_, sizeof(recvbuf_),
+                noopSocketCallback)));
     ASSERT_TRUE(sock);
     const int s =  sock->native(); // note: this doesn't have to be closed
     EXPECT_NE(-1, s);
@@ -293,7 +295,8 @@ TEST_F(ASIOMessageManagerTest, createMessageSocketTCPIPv6) {
     scoped_ptr<ASIOMessageSocket> sock(
         dynamic_cast<ASIOMessageSocket*>(
             asio_manager_.createMessageSocket(
-                IPPROTO_TCP, "::1", 5300, noopSocketCallback)));
+                IPPROTO_TCP, "::1", 5300, recvbuf_, sizeof(recvbuf_),
+                noopSocketCallback)));
     ASSERT_TRUE(sock);
     // In the case of TCP, the underlying socket is not open until send()
     EXPECT_EQ(-1, sock->native());
@@ -303,7 +306,8 @@ TEST_F(ASIOMessageManagerTest, createMessageSocketIPv4) {
     scoped_ptr<ASIOMessageSocket> sock(
         dynamic_cast<ASIOMessageSocket*>(
             asio_manager_.createMessageSocket(
-                IPPROTO_UDP, "127.0.0.1", 5304, noopSocketCallback)));
+                IPPROTO_UDP, "127.0.0.1", 5304, recvbuf_, sizeof(recvbuf_),
+                noopSocketCallback)));
     ASSERT_TRUE(sock);
     const int s =  sock->native();
     EXPECT_NE(-1, s);
@@ -328,7 +332,8 @@ TEST_F(ASIOMessageManagerTest, createMessageSocketTCPIPv4) {
     scoped_ptr<ASIOMessageSocket> sock(
         dynamic_cast<ASIOMessageSocket*>(
             asio_manager_.createMessageSocket(
-                IPPROTO_TCP, "127.0.0.1", 5304, noopSocketCallback)));
+                IPPROTO_TCP, "127.0.0.1", 5304, recvbuf_, sizeof(recvbuf_),
+                noopSocketCallback)));
     ASSERT_TRUE(sock);
     // In the case of TCP, the underlying socket is not open until send()
     EXPECT_EQ(-1, sock->native());
@@ -337,17 +342,20 @@ TEST_F(ASIOMessageManagerTest, createMessageSocketTCPIPv4) {
 TEST_F(ASIOMessageManagerTest, createMessageSocketBadParam) {
     // Unspecified protocol (assuming it's neither UDP or TCP)
     EXPECT_THROW(asio_manager_.createMessageSocket(
-                     0, "::1", 5300, noopSocketCallback),
+                     0, "::1", 5300, recvbuf_, sizeof(recvbuf_),
+                     noopSocketCallback),
                  MessageSocketError);
 
     // Bad address
     EXPECT_THROW(asio_manager_.createMessageSocket(
-                     IPPROTO_UDP, "127.0.0..1", 5300, noopSocketCallback),
+                     IPPROTO_UDP, "127.0.0..1", 5300, recvbuf_,
+                     sizeof(recvbuf_), noopSocketCallback),
                  MessageSocketError);
 
     // Null callback
     EXPECT_THROW(asio_manager_.createMessageSocket(IPPROTO_UDP, "127.0.0.1",
-                                                  5300, NULL),
+                                                   5300, recvbuf_,
+                                                   sizeof(recvbuf_), NULL),
                  MessageSocketError);
 }
 
@@ -360,7 +368,8 @@ ASIOMessageManagerTest::sendUDPCheck(int recv_fd, const string& addr,
     // Create a socket on the manager if not created
     if (!test_sock_) {
         test_sock_.reset(asio_manager_.createMessageSocket(
-                             IPPROTO_UDP, addr, port, callback));
+                             IPPROTO_UDP, addr, port, recvbuf_,
+                             sizeof(recvbuf_), callback));
     }
 
     // Send data from the first socket, and receive on the second one.
@@ -480,6 +489,7 @@ ASIOMessageManagerTest::sendTCPCheck(int listen_fd, int udp_af,
     if (!test_sock_) {
         test_sock_.reset(asio_manager_.createMessageSocket(
                              IPPROTO_TCP, addr, lexical_cast<uint16_t>(port),
+                             recvbuf_, sizeof(recvbuf_),
                              boost::bind(
                                  &ASIOMessageManagerTest::sendCallback, this,
                                  _1)));
@@ -503,9 +513,11 @@ ASIOMessageManagerTest::sendTCPCheck(int listen_fd, int udp_af,
     // Send data from the UDP test socket, receive on the UDP socket,
     // and then send the data back.  This way we can be called back from
     // the manager, and handle the TCP events.
+    uint8_t udp_recvbuf[128];
     udp_sock_.reset(
         asio_manager_.createMessageSocket(
-            IPPROTO_UDP, addr, lexical_cast<uint16_t>(port),
+            IPPROTO_UDP, addr, lexical_cast<uint16_t>(port), udp_recvbuf,
+            sizeof(udp_recvbuf),
             boost::bind(&ASIOMessageManagerTest::callbackForTCPTest, this,
                         _1, accept_s_.fd, udp_s.fd, callback_limit)));
     triggerCallback(*udp_sock_, udp_s.fd);

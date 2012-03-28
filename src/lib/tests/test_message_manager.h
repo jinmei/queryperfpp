@@ -77,6 +77,7 @@ public:
 
     virtual MessageSocket* createMessageSocket(
         int proto, const std::string& address, uint16_t port,
+        void* recvbuf, size_t recvbuf_len,
         MessageSocket::Callback callback);
 
     virtual MessageTimer* createMessageTimer(MessageTimer::Callback callback);

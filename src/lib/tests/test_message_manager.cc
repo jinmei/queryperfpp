@@ -73,6 +73,7 @@ TestMessageTimer::cancel() {
 MessageSocket*
 TestMessageManager::createMessageSocket(int proto,
                                         const std::string&, uint16_t,
+                                        void*, size_t,
                                         MessageSocket::Callback callback)
 {
     TestMessageSocket* ret;

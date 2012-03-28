@@ -207,7 +207,8 @@ QueryRepository::QueryRepository(const string& input_file) :
 {
     if (impl_->input_.fail()) {
         delete impl_;
-        throw QueryRepositoryError("failed to input data file: " + input_file);
+        throw QueryRepositoryError("failed to open input data file: " +
+                                   input_file);
     }
 }
 

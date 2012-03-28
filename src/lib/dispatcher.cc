@@ -56,12 +56,13 @@ public:
         ctx_(ctx), qid_(qid), restart_callback_(restart_callback),
         timer_(mgr.createMessageTimer(
                    boost::bind(&QueryEvent::queryTimerCallback, this))),
-        tcp_sock_(NULL)
+        tcp_sock_(NULL), tcp_rcvbuf_(NULL)
     {}
 
     ~QueryEvent() {
         delete tcp_sock_;
         delete ctx_;
+        delete[] tcp_rcvbuf_;
     }
 
     QueryContext::QuerySpec start(qid_t qid, const time_duration& timeout) {
@@ -69,6 +70,16 @@ public:
         qid_ = qid;
         timer_->start(timeout);
         return (ctx_->start(qid_));
+    }
+
+    void* getTCPBuf() {
+        if (tcp_rcvbuf_ == NULL) {
+            tcp_rcvbuf_ = new uint8_t[TCP_RCVBUF_LEN];
+        }
+        return (tcp_rcvbuf_);
+    }
+    size_t getTCPBufLen() {
+        return (TCP_RCVBUF_LEN);
     }
 
     qid_t getQid() const { return (qid_); }
@@ -103,6 +114,8 @@ private:
     RestartCallback restart_callback_;
     shared_ptr<MessageTimer> timer_;
     MessageSocket* tcp_sock_;
+    static const size_t TCP_RCVBUF_LEN = 65535;
+    uint8_t* tcp_rcvbuf_;      // lazily allocated
 };
 
 typedef shared_ptr<QueryEvent> QueryEventPtr;
@@ -172,6 +185,7 @@ struct Dispatcher::DispatcherImpl {
             MessageSocket* tcp_sock =
                 msg_mgr_->createMessageSocket(
                     IPPROTO_TCP, server_address_, server_port_,
+                    qev.getTCPBuf(), qev.getTCPBufLen(),
                     boost::bind(&DispatcherImpl::responseTCPCallback, this,
                                 _1, &qev));
                 qev.setTCPSocket(tcp_sock);
@@ -202,6 +216,7 @@ struct Dispatcher::DispatcherImpl {
     // these should be released first.
     scoped_ptr<MessageSocket> udp_socket_;
     scoped_ptr<MessageTimer> session_timer_;
+    uint8_t udp_recvbuf_[4096];
 
     // Configurable parameters
     string server_address_;
@@ -228,6 +243,7 @@ Dispatcher::DispatcherImpl::run() {
     // common UDP socket and the whole session timer.
     udp_socket_.reset(msg_mgr_->createMessageSocket(
                           IPPROTO_UDP, server_address_, server_port_,
+                          udp_recvbuf_, sizeof(udp_recvbuf_),
                           boost::bind(&DispatcherImpl::responseCallback,
                                       this, _1)));
     session_timer_.reset(msg_mgr_->createMessageTimer(
@@ -312,7 +328,7 @@ Dispatcher::DispatcherImpl::restartQuery(qid_t qid, const Message* response) {
             }
         }
     } else {
-        // TODO: record the mismatched resonse
+        // TODO: record the mismatched response
     }
 }
 

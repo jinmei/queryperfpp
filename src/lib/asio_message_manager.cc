@@ -37,7 +37,8 @@ namespace Queryperf {
 class UDPMessageSocket : public ASIOMessageSocket {
 public:
     UDPMessageSocket(io_service& io_service, const string& address,
-                     uint16_t port, Callback callback);
+                     uint16_t port, void* recvbuf, size_t recvbuf_len,
+                     Callback callback);
     virtual void send(const void* data, size_t datalen);
     virtual void cancel();
 
@@ -51,13 +52,16 @@ private:
     udp::socket asio_sock_;
     Callback callback_;
     bool receiving_;
-    uint8_t recvbuf_[4096];
+    void* recvbuf_;
+    size_t recvbuf_len_;
 };
 
 UDPMessageSocket::UDPMessageSocket(io_service& io_service,
-                                   const string& address,
-                                   uint16_t port, Callback callback) :
-    asio_sock_(io_service), callback_(callback), receiving_(false)
+                                   const string& address, uint16_t port,
+                                   void* recvbuf, size_t recvbuf_len,
+                                   Callback callback) :
+    asio_sock_(io_service), callback_(callback), receiving_(false),
+    recvbuf_(recvbuf), recvbuf_len_(recvbuf_len)
 {
     try {
         // connect the socket, which implicitly opens a new one.
@@ -83,7 +87,7 @@ UDPMessageSocket::send(const void* data, size_t datalen) {
                                  + ec.message());
     }
     if (!receiving_) {
-        asio_sock_.async_receive(asio::buffer(recvbuf_, sizeof(recvbuf_)),
+        asio_sock_.async_receive(asio::buffer(recvbuf_, recvbuf_len_),
                                  boost::bind(&UDPMessageSocket::handleRead,
                                              this, _1, _2));
         receiving_ = true;
@@ -103,7 +107,7 @@ UDPMessageSocket::handleRead(const asio::error_code& ec, size_t length) {
                                  ec.message());
     }
     callback_(Event(recvbuf_, length));
-    asio_sock_.async_receive(asio::buffer(recvbuf_, sizeof(recvbuf_)),
+    asio_sock_.async_receive(asio::buffer(recvbuf_, recvbuf_len_),
                              boost::bind(&UDPMessageSocket::handleRead,
                                          this, _1, _2));
 }
@@ -112,7 +116,8 @@ class TCPMessageSocket : public ASIOMessageSocket {
 public:
     TCPMessageSocket(ASIOMessageManager* manager,
                      io_service& io_service, const string& address,
-                     uint16_t port, Callback callback);
+                     uint16_t port, void* recvbuf, size_t recvbuf_len,
+                     Callback callback);
     virtual void send(const void* data, size_t datalen);
     virtual void cancel();
     virtual int native() { return (asio_sock_.native()); }
@@ -138,8 +143,9 @@ private:
     asio::error_code asio_error_; // placeholder for getting ASIO error
     tcp::endpoint dest_;
     Callback callback_;
-    uint8_t recvbuf_[65535];     // for the first message
-    size_t recvbuflen_;  // actual message length of the first message
+    void* recvbuf_;       // for the first message
+    size_t recvbuf_len_;  // available size of recvbuf_
+    size_t recvdata_len_; // actual message length of the first message
     uint8_t aux_recvbuf_[65535]; // placeholder for subsequent messages
     uint8_t msglen_placeholder_[2];
     boost::array<asio::const_buffer, 2> sendbufs_;
@@ -149,10 +155,12 @@ private:
 TCPMessageSocket::TCPMessageSocket(ASIOMessageManager* manager,
                                    io_service& io_service,
                                    const string& address, uint16_t port,
+                                   void* recvbuf, size_t recvbuf_len,
                                    Callback callback) :
     manager_(manager), asio_sock_(io_service),
-    dest_(asio::ip::address::from_string(address), port), callback_(callback),
-    recvbuflen_(0), cancelled_(false)
+    dest_(asio::ip::address::from_string(address), port),
+    callback_(callback), recvbuf_(recvbuf), recvbuf_len_(recvbuf_len),
+    recvdata_len_(0), cancelled_(false)
 {
     // Note: we don't even open the socket yet.
 }
@@ -180,8 +188,8 @@ TCPMessageSocket::send(const void* data, size_t datalen) {
     if (asio_error_) {
         cerr << "[Warn] Failed to open TCP connection: "
              << asio_error_.message() << endl;
-        callback_(Event(NULL, 0));
-        return;
+        // Note: we still cannot do callback; it could cause another call
+        // to this method (recursively), and result in call stack overflow.
     }
 #endif
 
@@ -228,7 +236,7 @@ TCPMessageSocket::handleWrite(const asio::error_code& ec, size_t) {
     if (asio_error_) {
         cerr << "[Warn] failed to shut down TCP socket: "
              << asio_error_.message() << endl;
-        callback_(Event(NULL, recvbuflen_));
+        callback_(Event(NULL, 0));
         return;
     }
 
@@ -248,7 +256,7 @@ TCPMessageSocket::handleReadLength(const asio::error_code& ec, size_t length) {
         // We've received all messages.  Note that this includes the case
         // where the server closes the connection without sending any message
         // or with partial message.
-        callback_(Event(recvbuf_, recvbuflen_));
+        callback_(Event(recvbuf_, recvdata_len_));
         return;
     }
     if (ec) {
@@ -263,13 +271,12 @@ TCPMessageSocket::handleReadLength(const asio::error_code& ec, size_t length) {
     }
     const uint16_t msglen = msglen_placeholder_[0] * 256 +
         msglen_placeholder_[1];
-    assert(sizeof(recvbuf_) >= msglen);
     assert(sizeof(aux_recvbuf_) >= msglen);
     // Now we are going to receive the main message.  We keep the first
     // message in recvbuf_ for callback, and hold others in the aux
     // buffer only temporarily.
     asio_sock_.async_receive(asio::buffer(
-                                 recvbuflen_ == 0 ? recvbuf_ : aux_recvbuf_,
+                                 recvdata_len_ == 0 ? recvbuf_ : aux_recvbuf_,
                                  msglen),
                              boost::bind(&TCPMessageSocket::handleReadData,
                                          this, _1, _2));
@@ -284,17 +291,17 @@ TCPMessageSocket::handleReadData(const asio::error_code& ec, size_t length) {
         // We've received all messages.  This is an unexpected connection
         // termination by the server.  Do the callback with what we've had
         // so far anyway.
-        callback_(Event(recvbuf_, recvbuflen_));
+        callback_(Event(recvbuf_, recvdata_len_));
         return;
     }
     if (ec) {
         cerr << "[Warn] failed to read TCP message: " << ec.message() << endl;
-        callback_(Event(NULL, recvbuflen_));
+        callback_(Event(NULL, recvdata_len_));
         return;
     }
     // If this is the first message, remember its length.
-    if (recvbuflen_ == 0) {
-        recvbuflen_ = length;
+    if (recvdata_len_ == 0) {
+        recvdata_len_ = length;
     }
 
     // There may be more messages, like in the case for AXFR or large IX FR
@@ -339,6 +346,7 @@ ASIOMessageManager::~ASIOMessageManager() {
 MessageSocket*
 ASIOMessageManager::createMessageSocket(int proto, const string& address,
                                         uint16_t port,
+                                        void* recvbuf, size_t recvbuf_len,
                                         MessageSocket::Callback callback)
 {
     if (!callback) {
@@ -346,10 +354,13 @@ ASIOMessageManager::createMessageSocket(int proto, const string& address,
     }
     if (proto == IPPROTO_UDP) {
         return (new UDPMessageSocket(impl_->io_service_, address, port,
-                                     callback));
+                                     recvbuf, recvbuf_len, callback));
     } else if (proto == IPPROTO_TCP) {
+        if (recvbuf_len < 65535) { // must be able to hold a full TCP msg
+            throw MessageSocketError("Insufficient TCP receive buffer");
+        }
         return (new TCPMessageSocket(this, impl_->io_service_, address, port,
-                                     callback));
+                                     recvbuf, recvbuf_len, callback));
     }
     throw MessageSocketError("unsupported or invalid protocol: " +
                              lexical_cast<string>(proto));

@@ -98,6 +98,7 @@ public:
     ///        when a complete response is received on the socket.
     virtual MessageSocket* createMessageSocket(
         int proto, const std::string& address, uint16_t port,
+        void* recvbuf, size_t recvbuf_len,
         MessageSocket::Callback callback) = 0;
 
     /// \brief Create a timer object.

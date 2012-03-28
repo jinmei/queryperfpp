@@ -329,7 +329,7 @@ ASIOMessageManager::createMessageSocket(int proto, const string& address,
                              lexical_cast<string>(proto));
 }
 
-class ASIOMessageTimer : public MessageTimer, private boost::noncopyable {
+class ASIOMessageTimer : public MessageTimer {
 public:
     ASIOMessageTimer(asio::io_service& io_service,
                      Callback callback) :

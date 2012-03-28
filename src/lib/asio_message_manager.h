@@ -57,10 +57,6 @@ public:
 
     virtual void stop();
 
-    /// \brief Returns a TCP port number likely to be available at the time of
-    /// call.
-    uint16_t getNextTCPPort();
-
 private:
     struct ASIOMessageManagerImpl;
     ASIOMessageManagerImpl* impl_;

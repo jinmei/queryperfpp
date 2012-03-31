@@ -27,7 +27,7 @@ if test "$bind10_inc_path" = "no"; then
 	bind10dirs="/usr/local /usr/pkg /opt /opt/local"
 	for d in $bind10dirs
 	do
-		if test -f $d/dns/message.h; then
+		if test -f $d/dns/rrtype.h; then
 			bind10_inc_path=$d
 			break
 		fi
@@ -38,7 +38,7 @@ if test "${bind10_inc_path}" ; then
 	BIND10_INCLUDES="-I${bind10_inc_path}"
 	CPPFLAGS="$CPPFLAGS $BIND10_INCLUDES"
 fi
-AC_CHECK_HEADERS([dns/message.h],,
+AC_CHECK_HEADERS([dns/rrtype.h],,
   AC_MSG_ERROR([Missing required BIND 10 header files.]))
 CPPFLAGS="$CPPFLAGS_SAVES"
 AC_SUBST(BIND10_INCLUDES)
@@ -214,6 +214,7 @@ AC_ARG_WITH([asio-include],
     [specify exact directory for ASIO headers]),
     [asio_include_path="$withval"])
 CPPFLAGS_SAVES="$CPPFLAGS"
+CPPFLAGS="$CPPFLAGS $BOOST_INCLUDES"
 if test "${asio_include_path}" ; then
 	ASIO_INCLUDES="-I${asio_include_path}"
 	CPPFLAGS="$CPPFLAGS $ASIO_INCLUDES"

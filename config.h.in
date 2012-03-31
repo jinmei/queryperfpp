@@ -26,8 +26,8 @@
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #undef HAVE_DLFCN_H
 
-/* Define to 1 if you have the <dns/message.h> header file. */
-#undef HAVE_DNS_MESSAGE_H
+/* Define to 1 if you have the <dns/rrtype.h> header file. */
+#undef HAVE_DNS_RRTYPE_H
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H

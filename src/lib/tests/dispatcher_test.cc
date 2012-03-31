@@ -351,7 +351,7 @@ TEST_F(DispatcherTest, builtins) {
     EXPECT_THROW(disp.loadQueries(), QueryRepositoryError);
 }
 
-TEST_F(DispatcherTest, DISABLED_preloadAfterRun) {
+TEST_F(DispatcherTest, preloadAfterRun) {
     Dispatcher disp("test-input.txt");
     // There's no server to be tested, so the send attempt should fail
     EXPECT_THROW(disp.run(), MessageSocketError);
@@ -378,7 +378,7 @@ TEST_F(DispatcherTest, setQclassForExternalRepository) {
     EXPECT_THROW(disp.setDefaultQueryClass("CH"), DispatcherError);
 }
 
-TEST_F(DispatcherTest, DISABLED_setQclassAfterRun) {
+TEST_F(DispatcherTest, setQclassAfterRun) {
     Dispatcher disp("test-input.txt");
     // There's no server to be tested, so the send attempt should fail
     EXPECT_THROW(disp.run(), MessageSocketError);
@@ -387,7 +387,7 @@ TEST_F(DispatcherTest, DISABLED_setQclassAfterRun) {
     EXPECT_THROW(disp.setDefaultQueryClass("CH"), DispatcherError);
 }
 
-TEST_F(DispatcherTest, DISABLED_setDNSSEC) {
+TEST_F(DispatcherTest, setDNSSEC) {
     Dispatcher disp("test-input.txt");
     disp.setDNSSEC(false);      // this shouldn't cause disruption
     EXPECT_THROW(disp.run(), MessageSocketError);
@@ -399,7 +399,7 @@ TEST_F(DispatcherTest, setDNSSECForExternalRepository) {
     EXPECT_THROW(disp.setDNSSEC(false), DispatcherError);
 }
 
-TEST_F(DispatcherTest, DISABLED_setEDNS) {
+TEST_F(DispatcherTest, setEDNS) {
     Dispatcher disp("test-input.txt");
     disp.setEDNS(false);      // this shouldn't cause disruption
     EXPECT_THROW(disp.run(), MessageSocketError);
@@ -411,11 +411,11 @@ TEST_F(DispatcherTest, setEDNSForExternalRepository) {
     EXPECT_THROW(disp.setEDNS(false), DispatcherError);
 }
 
-TEST_F(DispatcherTest, DISABLED_setProtocol) {
+TEST_F(DispatcherTest, setProtocol) {
     Dispatcher disp("test-input.txt");
-    disp.setProtocol(IPPROTO_TCP);
+    disp.setProtocol(IPPROTO_UDP);
     EXPECT_THROW(disp.run(), MessageSocketError);
-    EXPECT_THROW(disp.setProtocol(IPPROTO_UDP), DispatcherError);
+    EXPECT_THROW(disp.setProtocol(IPPROTO_TCP), DispatcherError);
 }
 
 TEST_F(DispatcherTest, setProtocolRepository) {

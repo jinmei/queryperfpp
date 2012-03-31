@@ -210,7 +210,13 @@ QueryRepository::QueryRepositoryImpl::readNextRequest(
             continue;
         }
         if (!ss.eof()) {
-            parseQueryOptions(ss);
+            try {
+                parseQueryOptions(ss);
+            } catch (const std::exception& ex) {
+                cerr << "Error parsing query option (" << ex.what() << "): "
+                     << line << endl;
+                continue;
+            }
         }
         // Workaround for some RR types that are not recognized by BIND 10
         map<string, string>::const_iterator it =

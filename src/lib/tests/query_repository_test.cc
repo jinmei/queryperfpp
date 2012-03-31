@@ -170,6 +170,7 @@ TEST_F(QueryRepositoryTest, ignoredLines) {
                     "www.example.com. BADTYPE\n" // RR type is bad
                     "\n" // empty line
                     "; A\n" // comment (shouldn't be confused with an input)
+                    "example NS garbage\n" // trailing garbage (with warning)
                     "nameonly\n" // incomplete line
                     "mail.example.org. AAAA\n");
     QueryRepository repo(ss);
@@ -203,13 +204,6 @@ TEST_F(QueryRepositoryTest, uncommonTypes) {
     queryMessageCheck(msg, 0, Name("www.example.com"), RRType::ANY());
 }
 
-TEST_F(QueryRepositoryTest, badQueryOption) {
-    stringstream ss("example NS garbage\n");
-    QueryRepository repo(ss);
-    // TBD: update it.
-    EXPECT_THROW(repo.getNextQuery(msg, protocol), QueryRepositoryError);
-}
-
 void
 checkIXFR(QueryRepository& repo, Message& msg) {
     int protocol;
@@ -233,7 +227,7 @@ TEST_F(QueryRepositoryTest, IXFR) {
     stringstream ss("example.com. IXFR serial=42\n");
     QueryRepository repo(ss);
     checkIXFR(repo, msg);
- }
+}
 
 TEST_F(QueryRepositoryTest, IXFRPreload) {
     stringstream ss("example.com. IXFR serial=42\n");

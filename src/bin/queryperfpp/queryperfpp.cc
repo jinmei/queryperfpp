@@ -58,6 +58,16 @@ accumulateResult(const Dispatcher& disp, QueryStatistics& result) {
                 static_cast<double>(duration.total_microseconds()) / 1000000));
 }
 
+// Default Parameters
+uint16_t getDefaultPort() { return (Dispatcher::DEFAULT_PORT); }
+long getDefaultDuration() { return (Dispatcher::DEFAULT_DURATION); }
+const size_t DEFAULT_THREAD_COUNT = 1;
+const char* const DEFAULT_CLASS = "IN";
+const bool DEFAULT_DNSSEC = true; // set EDNS DO bit by default
+const bool DEFAULT_EDNS = true; // set EDNS0 OPT RR by default
+const char* const DEFAULT_DATA_FILE = "-"; // stdin
+const char* const DEFAULT_PROTOCOL = "udp";
+
 void
 usage() {
     const string usage_head = "Usage: queryperf++ ";
@@ -65,14 +75,28 @@ usage() {
     cerr << usage_head
          << "[-C qclass] [-d datafile] [-D on|off] [-e on|off] [-l limit]\n";
     cerr << indent
-         << "[-L] [-n #threads] [-s server_addr] [-p port] [-P udp|tcp]\n";
+         << "[-L] [-n #threads] [-p port] [-P udp|tcp] [-Q query_sequence]\n";
     cerr << indent
-         << "[-Q query_sequence]\n";
-    cerr << "  -C specifies default query class (default: \"IN\")\n";
-    cerr << "  -D specifies whether to set EDNS DO bit (default: \"on\")\n";
-    cerr << "  -e specifies whether to include EDNS (default: \"on\")\n";
-    cerr << "  -P specifies transport protocol for queries (default: \"udp\")\n";
-    cerr << "  -Q specifies NL-separated query data in command line (default: unuspecified)";
+         << "[-s server_addr]\n";
+    cerr << "  -C sets default query class (default: "
+         << DEFAULT_CLASS << ")\n";
+    cerr << "  -d sets the input data file (default: stdin)\n";
+    cerr << "  -D sets whether to set EDNS DO bit (default: "
+         << (DEFAULT_EDNS ? "on" : "off") << ")\n";
+    cerr << "  -e sets whether to include EDNS (default: "
+         << (DEFAULT_DNSSEC ? "on" : "off") << ")\n";
+    cerr << "  -l sets how long to run tests in seconds (default: "
+         << getDefaultDuration() << ")\n";
+    cerr << "  -L enable query preloading (default: disabled)\n";
+    cerr << "  -n sets the number of querying threads (default: "
+         << DEFAULT_THREAD_COUNT << ")\n";
+    cerr << "  -p sets the port on which to query the server (default: "
+         << getDefaultPort() << ")\n";
+    cerr << "  -P sets transport protocol for queries (default: "
+         << DEFAULT_PROTOCOL << ")\n";
+    cerr << "  -Q sets newline-separated query data (default: unspecified)\n";
+    cerr << "  -s sets the server to query (default: " <<
+        Dispatcher::DEFAULT_SERVER << ")";
     cerr << endl;
     exit(1);
 }
@@ -87,10 +111,6 @@ runQueryperf(void* arg) {
     }
     return (NULL);
 }
-
-const bool DEFAULT_DNSSEC = true; // set EDNS DO bit by default
-const bool DEFAULT_EDNS = true; // set EDNS0 OPT RR by default
-const char* const DEFAULT_DATA_FILE = "-"; // stdin
 
 typedef shared_ptr<Dispatcher> DispatcherPtr;
 typedef shared_ptr<stringstream> SStreamPtr;
@@ -116,17 +136,17 @@ parseOnOffFlag(const char* optname, const char* const optarg,
 
 int
 main(int argc, char* argv[]) {
-    const char* qclass_txt = NULL;
+    const char* qclass_txt = DEFAULT_CLASS;
     const char* data_file = NULL;
     const char* dnssec_flag_txt = NULL;
     const char* edns_flag_txt = NULL;
-    const char* server_address = NULL;
-    const char* proto_txt = "udp";
-    const char* server_port_txt = NULL;
-    const char* time_limit_txt = NULL;
+    const char* server_address = Dispatcher::DEFAULT_SERVER;
+    const char* proto_txt = DEFAULT_PROTOCOL;
+    string server_port_str = lexical_cast<string>(getDefaultPort());
+    string time_limit_str = lexical_cast<string>(getDefaultDuration());
     const char* num_threads_txt = NULL;
     const char* query_txt = NULL;
-    size_t num_threads = 1;
+    size_t num_threads = DEFAULT_THREAD_COUNT;
     bool preload = false;
 
     int ch;
@@ -151,7 +171,7 @@ main(int argc, char* argv[]) {
             server_address = optarg;
             break;
         case 'p':
-            server_port_txt = optarg;
+            server_port_str = string(optarg);
             break;
         case 'P':
             proto_txt = optarg;
@@ -160,7 +180,7 @@ main(int argc, char* argv[]) {
             query_txt = optarg;
             break;
         case 'l':
-            time_limit_txt = optarg;
+            time_limit_str = string(optarg);
             break;
         case 'L':
             preload = true;
@@ -206,6 +226,7 @@ main(int argc, char* argv[]) {
         }
 
         // Prepare
+        cout << "[Status] Processing input data" << endl;
         for (size_t i = 0; i < num_threads; ++i) {
             DispatcherPtr disp;
             if (data_file != NULL) {
@@ -216,18 +237,10 @@ main(int argc, char* argv[]) {
                 disp.reset(new Dispatcher(*ss));
                 input_streams.push_back(ss);
             }
-            if (server_address != NULL) {
-                disp->setServerAddress(server_address);
-            }
-            if (server_port_txt != NULL) {
-                disp->setServerPort(lexical_cast<uint16_t>(server_port_txt));
-            }
-            if (time_limit_txt != NULL) {
-                disp->setTestDuration(lexical_cast<size_t>(time_limit_txt));
-            }
-            if (qclass_txt != NULL) {
-                disp->setDefaultQueryClass(qclass_txt);
-            }
+            disp->setServerAddress(server_address);
+            disp->setServerPort(lexical_cast<uint16_t>(server_port_str));
+            disp->setTestDuration(lexical_cast<size_t>(time_limit_str));
+            disp->setDefaultQueryClass(qclass_txt);
             disp->setDNSSEC(dnssec_flag);
             disp->setEDNS(edns_flag);
             disp->setProtocol(proto);
@@ -239,6 +252,8 @@ main(int argc, char* argv[]) {
         }
 
         // Run
+        cout << "[Status] Sending queries to " << server_address
+             << " over " << proto_str << ", port " << server_port_str << endl;
         vector<pthread_t> threads;
         const ptime start_time = microsec_clock::local_time();
         for (size_t i = 0; i < num_threads; ++i) {
@@ -261,9 +276,12 @@ main(int argc, char* argv[]) {
             }
         }
         const ptime end_time = microsec_clock::local_time();
+        cout << "[Status] Testing complete" << endl;
 
         // Accumulate per-thread statistics.  Print the summary QPS for each,
         // and if more than one thread was used, print the sum of them.
+        cout << "\nStatistics:\n\n";
+
         QueryStatistics result;
         double total_qps = 0;
         cout.precision(6);
@@ -286,11 +304,32 @@ main(int argc, char* argv[]) {
              << " queries\n";
         cout << "\n";
 
-        cout << "  Started at:           " << start_time << endl;
-        cout << "  Finished at:          " << end_time << endl;
+        cout << "  Percentage completed: " << setprecision(2);
+        if (result.queries_sent > 0) {
+            cout << setw(6) << (static_cast<double>(result.queries_completed) /
+                                result.queries_sent) * 100 << "%\n";
+        } else {
+            cout << "N/A\n";
+        }
+        cout << "  Percentage lost:      ";
+        if (result.queries_sent > 0) {
+            const size_t lost_count = result.queries_sent -
+                result.queries_completed;
+            cout << setw(6) << (static_cast<double>(lost_count) /
+                                result.queries_sent) * 100 << "%\n";
+        } else {
+            cout << "N/A\n";
+        }
         cout << "\n";
 
+        cout << "  Started at:           " << start_time << endl;
+        cout << "  Finished at:          " << end_time << endl;
         const time_duration duration = end_time - start_time;
+        cout << "  Run for:              " << setprecision(6)
+             << (static_cast<double>(duration.total_microseconds()) / 1000000)
+             << " seconds\n";
+        cout << "\n";
+
         const double qps = result.queries_completed / (
             static_cast<double>(duration.total_microseconds()) / 1000000);
         cout.precision(6);

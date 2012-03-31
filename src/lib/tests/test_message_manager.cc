@@ -55,11 +55,6 @@ TestMessageSocket::send(const void* data, size_t datalen) {
 }
 
 void
-TestMessageSocket::cancel() {
-    delete this;
-}
-
-void
 TestMessageTimer::start(const boost::posix_time::time_duration& duration) {
     ++n_started_;
     duration_seconds_ = duration.seconds();

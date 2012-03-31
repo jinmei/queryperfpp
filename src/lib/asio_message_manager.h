@@ -27,17 +27,21 @@
 namespace Queryperf {
 
 class ASIOMessageSocket : public MessageSocket {
-protected:
-    ASIOMessageSocket() {}
 public:
-    virtual ~ASIOMessageSocket() {}
-    virtual void send(const void* data, size_t datalen) = 0;
-    virtual void cancel() = 0;
+    // The existence of this class needs to be public for the convenience of
+    // the implementation.
+    class ASIOMessageSocketImpl;
+private:
+    ASIOMessageSocketImpl* impl_;
+public:
+    ASIOMessageSocket(ASIOMessageSocketImpl* impl) : impl_(impl) {}
+    virtual ~ASIOMessageSocket();
+    virtual void send(const void* data, size_t datalen);
 
     /// \brief Return the native socket descriptor.
     ///
     /// Provided for debugging purposes only.
-    virtual int native() = 0;
+    int native();
 };
 
 class ASIOMessageManager : public MessageManager {

@@ -19,6 +19,9 @@
 #include <dns/message.h>
 #include <dns/opcode.h>
 #include <dns/rcode.h>
+#include <dns/rdata.h>
+#include <dns/rrclass.h>
+#include <dns/rrtype.h>
 
 #include <gtest/gtest.h>
 
@@ -53,17 +56,20 @@ initialCheck(QueryRepository& repo, Message& msg,
     repo.getNextQuery(msg, protocol);
     EXPECT_EQ(expected_proto, protocol);
     queryMessageCheck(msg, 0, Name("example.com"), RRType::SOA(),
+                       default_expected_rr_counts,
                       expected_edns, expected_dnssec, expected_qclass);
 
     repo.getNextQuery(msg, protocol);
     EXPECT_EQ(expected_proto, protocol);
     queryMessageCheck(msg, 0, Name("www.example.com"), RRType::A(),
+                       default_expected_rr_counts,
                       expected_edns, expected_dnssec, expected_qclass);
 
     // Should go to the first line
     repo.getNextQuery(msg, protocol);
     EXPECT_EQ(expected_proto, protocol);
     queryMessageCheck(msg, 0, Name("example.com"), RRType::SOA(),
+                       default_expected_rr_counts,
                       expected_edns, expected_dnssec, expected_qclass);
 }
 
@@ -165,7 +171,6 @@ TEST_F(QueryRepositoryTest, ignoredLines) {
                     "\n" // empty line
                     "; A\n" // comment (shouldn't be confused with an input)
                     "nameonly\n" // incomplete line
-                    "example NS garbage\n" // trailing garbage
                     "mail.example.org. AAAA\n");
     QueryRepository repo(ss);
     repo.getNextQuery(msg, protocol);
@@ -196,5 +201,44 @@ TEST_F(QueryRepositoryTest, uncommonTypes) {
     queryMessageCheck(msg, 0, Name("example.com"), RRType(38));
     repo.getNextQuery(msg, protocol);
     queryMessageCheck(msg, 0, Name("www.example.com"), RRType::ANY());
+}
+
+TEST_F(QueryRepositoryTest, badQueryOption) {
+    stringstream ss("example NS garbage\n");
+    QueryRepository repo(ss);
+    // TBD: update it.
+    EXPECT_THROW(repo.getNextQuery(msg, protocol), QueryRepositoryError);
+}
+
+void
+checkIXFR(QueryRepository& repo, Message& msg) {
+    int protocol;
+
+    repo.getNextQuery(msg, protocol);
+
+    // IXFR queries should have SOA in the authority section.
+    const size_t expected_rr_counts[4] = {1, 0, 1, 0};
+    queryMessageCheck(msg, 0, Name("example.com"), RRType::IXFR(),
+                      expected_rr_counts);
+    ConstRRsetPtr auth = *msg.beginSection(Message::SECTION_AUTHORITY);
+    EXPECT_EQ(Name("example.com"), auth->getName());
+    EXPECT_EQ(RRClass::IN(), auth->getClass());
+    EXPECT_EQ(RRType::IXFR(), auth->getType());
+    EXPECT_EQ(0, auth->getRdataIterator()->getCurrent().compare(
+                  *rdata::createRdata(RRType::SOA(), RRClass::IN(),
+                                      ". . 42 0 0 0 0")));
+}
+
+TEST_F(QueryRepositoryTest, IXFR) {
+    stringstream ss("example.com. IXFR serial=42\n");
+    QueryRepository repo(ss);
+    checkIXFR(repo, msg);
+ }
+
+TEST_F(QueryRepositoryTest, IXFRPreload) {
+    stringstream ss("example.com. IXFR serial=42\n");
+    QueryRepository repo(ss);
+    repo.load();
+    checkIXFR(repo, msg);
 }
 }

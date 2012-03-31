@@ -19,10 +19,13 @@
 #include <dns/message.h>
 #include <dns/opcode.h>
 #include <dns/rcode.h>
+#include <dns/rdata.h>
 #include <dns/rrclass.h>
 #include <dns/rrtype.h>
+#include <dns/rrttl.h>
 #include <dns/question.h>
 
+#include <boost/foreach.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/scoped_ptr.hpp>
 
@@ -49,12 +52,28 @@ struct RequestParam {
     RequestParam(QuestionPtr question_param, int proto_param) :
         question(question_param), proto(proto_param)
     {}
+    RequestParam(QuestionPtr question_param, int proto_param,
+                 const vector<RRsetPtr>& authorities_param) :
+        question(question_param), proto(proto_param),
+        authorities(authorities_param)
+    {}
 
     // Default constructor.  Using some invalid initial values.
     RequestParam() : proto(IPPROTO_NONE) {}
 
     QuestionPtr question;
     int proto;                  // Transport protocol
+    vector<RRsetPtr> authorities;
+};
+
+struct QueryOptions {
+    QueryOptions() {
+        clear();
+    }
+    void clear() {
+        serial = 0;
+    }
+    uint32_t serial;         // querier's serial, only useful for IXFR
 };
 }
 
@@ -96,7 +115,11 @@ struct QueryRepository::QueryRepositoryImpl {
     }
 
     // Extract the next question from the input stream
-    QuestionPtr readNextRequest(bool rewind);
+    QuestionPtr readNextRequest(vector<RRsetPtr>& authorities,
+                                bool rewind);
+
+    // Extract optional attributes of the query.  Used by readNextRequest.
+    void parseQueryOptions(stringstream& ss);
 
     // Get the parameters of the next request, either from the preloaded
     // vector (if done) or from the input stream.
@@ -116,12 +139,36 @@ struct QueryRepository::QueryRepositoryImpl {
     vector<RequestParam>::const_iterator current_param_;
     vector<RequestParam>::const_iterator end_param_;
 
+    QueryOptions options_;
+
 private:
     RequestParam param_placeholder_;
 };
 
+void
+QueryRepository::QueryRepositoryImpl::parseQueryOptions(stringstream& ss) {
+    while (!ss.eof()) {
+        string option;
+        ss >> option;
+
+        const size_t pos_delim = option.find('=');
+        if (pos_delim == string::npos) {
+            throw QueryRepositoryError("Invalid query option: no '='");
+        }
+        const string optname = option.substr(0, pos_delim);
+        const string optarg = option.substr(pos_delim + 1);
+
+        // Set option: for now just hardcode known options.
+        if (optname == "serial") {
+            options_.serial = lexical_cast<uint32_t>(optarg);
+        }
+    }
+}
+
 QuestionPtr
-QueryRepository::QueryRepositoryImpl::readNextRequest(bool rewind) {
+QueryRepository::QueryRepositoryImpl::readNextRequest(
+    vector<RRsetPtr>& authorities, bool rewind)
+{
     QuestionPtr question;
 
     if (!rewind && input_.eof()) {
@@ -153,12 +200,17 @@ QueryRepository::QueryRepositoryImpl::readNextRequest(bool rewind) {
             }
         }
 
+        options_.clear();
+        authorities.clear();
         stringstream ss(line);
         string qname_text, qtype_text;
         ss >> qname_text >> qtype_text;
-        if (ss.bad() || ss.fail() || !ss.eof()) {
+        if (ss.bad() || ss.fail()) {
             // Ignore the line is organized in an unexpected way.
             continue;
+        }
+        if (!ss.eof()) {
+            parseQueryOptions(ss);
         }
         // Workaround for some RR types that are not recognized by BIND 10
         map<string, string>::const_iterator it =
@@ -167,8 +219,20 @@ QueryRepository::QueryRepositoryImpl::readNextRequest(bool rewind) {
             qtype_text = it->second;
         }
         try {
-            question.reset(new Question(Name(qname_text), qclass_,
-                                        RRType(qtype_text)));
+            const RRType qtype(qtype_text);
+            const Name qname(qname_text);
+            question.reset(new Question(qname, qclass_, qtype));
+
+            // For IXFR, we need to add an SOA to the authority section.
+            if (qtype == RRType::IXFR()) {
+                RRsetPtr rrset(new RRset(qname, qclass_, qtype, RRTTL(0)));
+                rrset->addRdata(rdata::createRdata(
+                                    RRType::SOA(), qclass_,
+                                    ". . " +
+                                    lexical_cast<string>(options_.serial) +
+                                    " 0 0 0 0"));
+                authorities.push_back(rrset);
+            }
         } catch (const isc::Exception& ex) {
             // The input data may contain bad string, which would trigger an
             // exception.  We ignore them and continue reading until we find
@@ -192,7 +256,8 @@ QueryRepository::QueryRepositoryImpl::getNextParam() {
         return (param);
     }
 
-    param_placeholder_.question = readNextRequest(true);
+    param_placeholder_.question =
+        readNextRequest(param_placeholder_.authorities, true);
     param_placeholder_.proto = proto_;
     return (param_placeholder_);
 }
@@ -224,8 +289,11 @@ QueryRepository::load() {
     }
 
     QuestionPtr question;
-    while ((question = impl_->readNextRequest(false)) != NULL) {
-        impl_->params_.push_back(RequestParam(question, impl_->proto_));
+    vector<RRsetPtr> authorities;
+    while ((question = impl_->readNextRequest(authorities, false))
+           != NULL) {
+        impl_->params_.push_back(RequestParam(question, impl_->proto_,
+                                              authorities));
     }
     if (impl_->params_.empty()) {
         throw QueryRepositoryError("failed to preload queries: empty input");
@@ -248,6 +316,9 @@ QueryRepository::getNextQuery(Message& query_msg, int& protocol) {
     query_msg.setRcode(Rcode::NOERROR());
     query_msg.setHeaderFlag(Message::HEADERFLAG_RD);
     query_msg.addQuestion(param.question);
+    BOOST_FOREACH(const RRsetPtr rrset, param.authorities) {
+        query_msg.addRRset(Message::SECTION_AUTHORITY, rrset);
+    }
     protocol = param.proto;
     if (impl_->use_edns_ || impl_->use_dnssec_) {
         query_msg.setEDNS(impl_->edns_);

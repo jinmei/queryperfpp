@@ -52,18 +52,27 @@ struct RequestParam {
     RequestParam(QuestionPtr question_param, int proto_param) :
         question(question_param), proto(proto_param)
     {}
-    RequestParam(QuestionPtr question_param, int proto_param,
-                 const vector<RRsetPtr>& authorities_param) :
-        question(question_param), proto(proto_param),
-        authorities(authorities_param)
-    {}
 
     // Default constructor.  Using some invalid initial values.
     RequestParam() : proto(IPPROTO_NONE) {}
 
+    void setEDNSPolicy(bool use_dnssec_param, bool use_edns_param) {
+        // For special types of queries, we don't use EDNS by default
+        if (question->getType() == RRType::AXFR() ||
+            question->getType() == RRType::IXFR()) {
+            use_dnssec = false;
+            use_edns = false;
+        } else {
+            use_dnssec = use_dnssec_param;
+            use_edns = use_edns_param;
+        }
+    }
+
     QuestionPtr question;
     int proto;                  // Transport protocol
     vector<RRsetPtr> authorities;
+    bool use_dnssec;
+    bool use_edns;
 };
 
 struct QueryOptions {
@@ -265,6 +274,7 @@ QueryRepository::QueryRepositoryImpl::getNextParam() {
     param_placeholder_.question =
         readNextRequest(param_placeholder_.authorities, true);
     param_placeholder_.proto = proto_;
+    param_placeholder_.setEDNSPolicy(use_dnssec_, use_edns_);
     return (param_placeholder_);
 }
 
@@ -298,8 +308,10 @@ QueryRepository::load() {
     vector<RRsetPtr> authorities;
     while ((question = impl_->readNextRequest(authorities, false))
            != NULL) {
-        impl_->params_.push_back(RequestParam(question, impl_->proto_,
-                                              authorities));
+        impl_->params_.push_back(RequestParam(question, impl_->proto_));
+        impl_->params_.back().authorities = authorities;
+        impl_->params_.back().setEDNSPolicy(impl_->use_dnssec_,
+                                            impl_->use_edns_);
     }
     if (impl_->params_.empty()) {
         throw QueryRepositoryError("failed to preload queries: empty input");
@@ -326,7 +338,7 @@ QueryRepository::getNextQuery(Message& query_msg, int& protocol) {
         query_msg.addRRset(Message::SECTION_AUTHORITY, rrset);
     }
     protocol = param.proto;
-    if (impl_->use_edns_ || impl_->use_dnssec_) {
+    if (param.use_edns || param.use_dnssec) {
         query_msg.setEDNS(impl_->edns_);
     }
 }

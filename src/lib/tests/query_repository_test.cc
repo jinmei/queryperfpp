@@ -205,6 +205,32 @@ TEST_F(QueryRepositoryTest, uncommonTypes) {
 }
 
 void
+checkAXFR(QueryRepository& repo, Message& msg) {
+    int protocol;
+
+    repo.getNextQuery(msg, protocol);
+    queryMessageCheck(msg, 0, Name("example.com"), RRType::AXFR(),
+                      default_expected_rr_counts, false);
+
+    // Unless specified by a per query option (not supported yet), AXFR queries
+    // don't include EDNS.
+    EXPECT_FALSE(msg.getEDNS());
+}
+
+TEST_F(QueryRepositoryTest, AXFR) {
+    stringstream ss("example.com. AXFR\n");
+    QueryRepository repo(ss);
+    checkAXFR(repo, msg);
+}
+
+TEST_F(QueryRepositoryTest, AXFRPreload) {
+    stringstream ss("example.com. AXFR\n");
+    QueryRepository repo(ss);
+    repo.load();
+    checkAXFR(repo, msg);
+}
+
+void
 checkIXFR(QueryRepository& repo, Message& msg) {
     int protocol;
 
@@ -213,7 +239,7 @@ checkIXFR(QueryRepository& repo, Message& msg) {
     // IXFR queries should have SOA in the authority section.
     const size_t expected_rr_counts[4] = {1, 0, 1, 0};
     queryMessageCheck(msg, 0, Name("example.com"), RRType::IXFR(),
-                      expected_rr_counts);
+                      expected_rr_counts, false);
     ConstRRsetPtr auth = *msg.beginSection(Message::SECTION_AUTHORITY);
     EXPECT_EQ(Name("example.com"), auth->getName());
     EXPECT_EQ(RRClass::IN(), auth->getClass());
@@ -221,6 +247,10 @@ checkIXFR(QueryRepository& repo, Message& msg) {
     EXPECT_EQ(0, auth->getRdataIterator()->getCurrent().compare(
                   *rdata::createRdata(RRType::SOA(), RRClass::IN(),
                                       ". . 42 0 0 0 0")));
+
+    // Unless specified by a per query option (not supported yet), IXFR queries
+    // don't include EDNS.
+    EXPECT_FALSE(msg.getEDNS());
 }
 
 TEST_F(QueryRepositoryTest, IXFR) {

@@ -40,9 +40,7 @@ class Dispatcher : private boost::noncopyable {
 public:
     //
     // Default parameters: derived from the original queryperf.
-    // parameters eventually taken:
-    //   window size, server adress, server port
-    //   socket buffer size
+    // parameters eventually taken: socket buffer size
 
     /// \brief Default window size: maximum number of queries outstanding.
     static const size_t DEFAULT_WINDOW = 20;

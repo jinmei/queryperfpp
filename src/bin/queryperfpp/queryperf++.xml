@@ -54,6 +54,7 @@
       <arg><option>-p <replaceable>port</replaceable></option></arg>
       <arg><option>-P <replaceable>udp|tcp</replaceable></option></arg>
       <arg><option>-Q <replaceable>query_sequence</replaceable></option></arg>
+      <arg><option>-s <replaceable>server_addr</replaceable></option></arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 

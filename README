@@ -1,5 +1,106 @@
-Major expected features
-- multi thread support for higher performance
-- TCP fallback
-- moduler and extendability
-- query preloading for improve performance with smaller input data
+*********************** ABOUT queryperf++ **********************
+
+queryperf++ is a framework for performance measurement on DNS server
+implementations.  It offers the following major features, some of
+which are unique to queryperf++ as far as the author knows:
+
+- It supports both UDP and TCP as the transport protocol.  In
+  particular, it can be used to measure server performance on AXFR or
+  IXFR over TCP.
+- It allows multiple threads to send test queries to the tested server
+  in concurrent.  It will help get more reliable results on
+  performance of some very high-performance server implementations or
+  in test scenarios that require more complicated tasks at the querier
+  side.
+- It's designed to be modular and extendable.  The main tasks for the
+  tests such as generating query and handling queries and responses
+  are implemented as a separate library, and some part of them can be
+  dynamically extended using user-defined C++ classes.
+
+As a framework, queryperf++ consists of two components: the library
+named libqueryperf++ and the main executable program, queryperf++.
+For those who just want to perform basic performance tests on a
+specific server implementation, it should be sufficient to just build
+everything and run the queryperf++ program.  Those who want to
+conduct more customized test scenarios can extend or update the
+library and build their own test programs.
+
+*********************** DEPENDENCIES ***********************
+
+queryperf++ depends on the C++ DNS library provided as part of ISC
+BIND 10 (which is available at ftp://ftp.isc.org/isc/bind10/).  It
+also depends on the Boost C++ library (only header files are needed,
+available at http://www.boost.org/), and the default implementation
+uses the ASIO library (non Boost, header only version; available at
+http://think-async.com/) for network I/O and timer management.  Since
+BIND 10 itself depends on both Boost and ASIO, queryperf++ essentially
+only depends on BIND 10.  See the next section for more specific
+details on how to build it.
+
+******************** HOW TO BUILD queryperf++ *********************
+
+As noted in the previous section, queryperf++ depends on ISC BIND 10.
+You'll first need to get, build, and install it.  We refer to the
+installation directory of BIND 10 as ${BIND10_INSTALL_DIR} below (so,
+for example, the binary file of libdns++ should be found at
+${BIND10_INSTALL_DIR}/lib).  Also, as of this writing, installed
+header files of BIND 10 are not sufficient to build third party
+applications like queryperf++.  So, in practice, you'll also need to
+have an extracted source tree of BIND 10 somewhere and have
+queryperf++ look for some header files there.  We refer to the top
+directory of the BIND 10 source tree as ${BIND10_SRC_DIR}.  So, for
+example, you should be able to find a header file named name.h under
+${BIND10_SRC_DIR}/src/lib/dns.  Note that you first need to build BIND
+10 in the source tree because some of the necessary header files are
+dynamically generated during the build process.
+
+If you have successfully built BIND 10, you should already have Boost
+installed somewhere in your system (note, again, that queryperf++ only
+needs Boost header files).  We refer to the install directory where
+the 'boost' subdirectory is located as ${BOOST_HEADER_DIR}.  You
+should be able to find a file named version.hpp in the
+${BOOST_HEADER_DIR}/boost directory.
+
+Finally, you need ASIO header files.  The easiest way for this set up
+is to use the ones included in the BIND 10 source tree.  We assume you
+do it below.
+
+Once you install all dependencies and set BIND10_INSTALL_DIR,
+BIND10_SRC_DIR, and BOOST_HEADER_DIR, the following step should
+just work for building queryperf++:
+
+% ./configure --with-boost-include=${BOOST_HEADER_DIR} \
+    --with-bind10-include=${BIND10_SRC_DIR}/src/lib \
+    --with-bind10-lib=${BIND10_INSTALL_DIR} \
+    --with-asio-include=${BIND10_SRC_DIR}/ext/asio
+% make
+
+I have successfully built queryperf++ with several versions of g++ on
+FreeBSD and Linux, and with clang++ 3.1 on MacOS Lion.
+
+******************** HOW TO USE queryperf++ ********************
+
+If the build is completed successfully, you should be able to find an
+executable named queryperf++ in the src/bin/queryperfpp directory.
+There's a man page of the program in the directory.  See the man for
+more details about how to use it.
+
+If you are interested in building your own measurement tool based on
+libqueryperf++, see the source code under the src/lib directory.  All
+necessary source files are included in the tar ball, but if you want
+you can also clone the development repository on github:
+https://github.com/jinmei/queryperfpp
+
+******************** FUTURE PLANS ********************
+
+- TSIG support
+- Support for dynamic DNS update requests as test queries
+- Support for sending broken query data
+- TCP fallback support
+- Extend the library further so it can also run in the "stand alone"
+  mode, i.e., without involving network I/O.  We can then link it to
+  the server source code (if it's reasonably modular) and measure the
+  "gross" maximum performance.
+- Provide a Python wrapper interface, especially with the stand alone
+  mode.  We'll then be able to directly measure the gross performance
+  of BIND 10 Python programs such as the xfrout daemon.

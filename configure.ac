@@ -254,6 +254,12 @@ PTHREAD_LDFLAGS=
 AC_CHECK_LIB(pthread, pthread_create,[ PTHREAD_LDFLAGS=-lpthread ], [])
 LDFLAGS="$LDFLAGS $PTHREAD_LDFLAGS"
 
+# Man pages (optional)
+AC_ARG_ENABLE(man, [AC_HELP_STRING([--enable-man],
+  [regenerate man pages [default=no]])], enable_man=$enableval, enable_man=no)
+
+AM_CONDITIONAL(ENABLE_MAN, test x$enable_man != xno)
+
 AC_CONFIG_FILES([Makefile
                  src/Makefile
                  src/lib/Makefile

@@ -1,0 +1,352 @@
+<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+               "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd"
+	       [<!ENTITY mdash "&#8212;">]>
+<!--
+ - Copyright (C) 2012 JINMEI Tatuya
+ -
+ - Permission to use, copy, modify, and/or distribute this software for any
+ - purpose with or without fee is hereby granted, provided that the above
+ - copyright notice and this permission notice appear in all copies.
+ -
+ - THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES WITH
+ - REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ - AND FITNESS.  IN NO EVENT SHALL ISC BE LIABLE FOR ANY SPECIAL, DIRECT,
+ - INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+ - LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
+ - OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ - PERFORMANCE OF THIS SOFTWARE.
+-->
+
+<refentry>
+
+  <refentryinfo>
+    <date>March 31, 2012</date>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>queryperf++</refentrytitle>
+    <manvolnum>1</manvolnum>
+    <refmiscinfo>jinmei.org</refmiscinfo>
+  </refmeta>
+
+  <refnamediv>
+    <refname>queryperf++</refname>
+    <refpurpose>A DNS query performance measurement utility</refpurpose>
+  </refnamediv>
+
+  <docinfo>
+    <copyright>
+      <year>2012</year>
+      <holder>JINMEI Tatuya</holder>
+    </copyright>
+  </docinfo>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>queryperf++</command>
+      <arg><option>-C <replaceable>qclass</replaceable></option></arg>
+      <arg><option>-d <replaceable>datafile</replaceable></option></arg>
+      <arg><option>-D <replaceable>on|off</replaceable></option></arg>
+      <arg><option>-e <replaceable>on|off</replaceable></option></arg>
+      <arg><option>-l <replaceable>limit</replaceable></option></arg>
+      <arg><option>-L</option></arg>
+      <arg><option>-n <replaceable># threads</replaceable></option></arg>
+      <arg><option>-p <replaceable>port</replaceable></option></arg>
+      <arg><option>-P <replaceable>udp|tcp</replaceable></option></arg>
+      <arg><option>-Q <replaceable>query_sequence</replaceable></option></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>DESCRIPTION</title>
+    <para>The <command>queryperf++</command> utility is a test tool
+      for performance measurement on DNS server implementations.
+      It's intended to be used for measuring maximum possible query
+      performance of authoritative server implementations.
+    </para>
+
+    <para>
+      This utility sends a given set of standard DNS queries to a
+      specified server for a specified period of time.
+      To keep the server sufficiently busy, it sends multiple queries
+      in parallel (with a fixed number of upper limit, which is
+      currently 20 and not configurable).
+      When it receives a response to a query it has sent, it sends
+      another query to the server; if it cannot get a response to a
+      query for some period (which is currently 5 seconds, and non
+      configurable), it records the fact and sends another query.
+    </para>
+
+    <para>
+      Once the specified time has passed, it stops sending new
+      queries, waits for responses to all outstanding ones, and
+      completes the test.
+      It then shows summarized statistics such as the total number of
+      queries sent and responses received, and total performance in
+      terms of queries per second.
+    </para>
+
+    <para>
+      As is the DNS protocol, the primary focus of
+      the <command>queryperf++</command> utility is to measure the
+      server performance using UDP as the transport protocol, but it
+      also supports TCP unlike other similar tools.  Note, however,
+      that test results using TCP may not detect the maximum possible
+      performance of the tested server due to the overhead of the
+      transport protocol itself and the overhead of this utility
+      itself when using TCP.
+    </para>
+
+    <para>
+      There are very fast DNS server implementations, which,
+      especially when using multiple CPU cores by threading or
+      multi-processing, could run even as fast as the measurement
+      tool.  In order to make sure to keep these servers sufficiently
+      busy and measure the maximum performance more reliably,
+      this utility can use multiple threads querying in parallel.
+    </para>
+
+  </refsect1>
+
+  <refsect1>
+    <title>OPTIONS</title>
+
+    <para>The supported command line options are as follows.
+      There are several options that are defined as the "default" for
+      queries, such as the <option>-C</option> option.
+      In the current version these generally applies to all queries;
+      in future it will be customizable per query basis, at which
+      point this option will specify the default when it's not
+      customized.
+    </para>
+
+    <varlistentry>
+      <term>
+        <option>-C</option> <replaceable>qclass</replaceable>
+      </term>
+      <listitem>
+	<para>Sets the default RR class of queries.
+	  The default is "IN"</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry>
+      <term>
+        <option>-d</option> <replaceable>datafile</replaceable>
+      </term>
+      <listitem>
+	<para>Sets the input data file name of queries.
+	  If unspecified, and if the <option>-Q</option> isn't
+	  specified, the standard input will be used.
+	  The standard input can also be explicitly specified by
+	  specifying a single dash ("-") for this option.
+	  See the section below for the syntax of the data file.
+	</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry>
+      <term>
+        <option>-D</option> <replaceable>on|off</replaceable>
+      </term>
+      <listitem>
+	<para>Sets whether to set the EDNS DO bit to queries by
+	  default.  If its value is "on", the DO bit will be set; if
+	  it's "off", the DO bit will be cleared.  The default is "on"
+	  for all queries except for those of type AXFR or IXFR.
+	  Note that if the value of this option is "on", it
+	  automatically implies that the <option>-e</option> option is
+	  also set to "on".
+	</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry>
+      <term>
+        <option>-e</option> <replaceable>on|off</replaceable>
+      </term>
+      <listitem>
+	<para>Sets whether to include an EDNS OPT RR to queries for
+	  other purposes than DNS by default.  If its value is "on",
+	  the OPT RR will be included; if it's "off", the OPT RR will
+	  not be included.  The default is "on" for all queries except
+	  for those of type AXFR or IXFR.
+	  Note that simply setting this option to "off" may not be
+	  sufficient to completely suppress OPT RRs;
+	  The <option>-D</option> option must also be set to "off".
+	</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry>
+      <term>
+        <option>-l</option> <replaceable>limit</replaceable>
+      </term>
+      <listitem>
+	<para>Sets how long the measurement test should run in
+	seconds.  The default is 30.
+	</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry>
+      <term>
+        <option>-L</option>
+      </term>
+      <listitem>
+	<para>Enables query preloading.  If this option is specified,
+	  The <command>queryperf++</command> utility will parse
+	  all queries of the input data and convert them to in-memory
+	  native objects before starting queries.
+	  When sending queries, query data will be generated from the
+	  in-memory objects without parsing the data.
+	  If the host running this utility has sufficient memory for
+	  the query data, specifying this option will help minimize
+	  the overhead of the querier side, and will be particularly
+	  useful for testing faster server implementations.
+	  Preloading is disabled by default.
+	</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry>
+      <term>
+        <option>-n</option> <replaceable># threads</replaceable>
+      </term>
+      <listitem>
+	<para>Sets the number of querying threads.  If the value of
+	  this option is larger than 1, the specified number of multiple
+	  threads send queries to the server simultaneously.
+	  The <command>queryperf++</command> utility will show
+	  the summarized result at the end of the test session.
+	  This is useful if the server is fast enough for test queries
+	  and the <command>queryperf++</command> utility runs on a
+	  multi core machine.
+	  The default is 1.
+	</para>
+	<note><simpara>
+	    When the value of this option is larger than 1, the input
+	    data file must not be the standard input due to
+	    internal implementation limitations.
+	</simpara></note>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry>
+      <term>
+        <option>-p</option> <replaceable>port</replaceable>
+      </term>
+      <listitem>
+	<para>Sets the (UDP or TCP) port on which to query the server.
+	  It must be an unsigned 16-bit decimal integer.
+	  The default is 53.
+	</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry>
+      <term>
+        <option>-P</option> <replaceable>udp|tcp</replaceable>
+      </term>
+      <listitem>
+	<para>Sets the default transport protocol over which queries
+	  are sent.  If it's set to "udp", UDP will be used; if it's
+	  "tcp", TCP will be used.  The default is "udp".
+	  Note that normally TCP is expected (or even required) for
+	  AXFR and IXFR, but the <command>queryperf++</command>
+	  utility does not automatically change the default for these
+	  types of queries.  Unless the unusual case is to be tested,
+	  "tcp" will have to be specified explicitly for these queries.
+	</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry>
+      <term>
+        <option>-Q</option> <replaceable>query_sequence</replaceable>
+      </term>
+      <listitem>
+	<para>Sets newline-separated query data.  The value of this
+	  option must be a single string (which can consist of multiple
+	  lines separated by a newline) and must follow the same syntax
+	  as that of an input data file.
+	  This option will be especially useful if the same single
+	  query (or a few of them) is to be repeated.
+	  By default this option won't be used.
+	</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry>
+      <term>
+        <option>-s</option> <replaceable>server_addr</replaceable>
+      </term>
+      <listitem>
+	<para>Sets the default IP address of the server to query.
+	  It must be a valid textual form of IPv6 or IPv4 address.
+	  The default is ::1 (the IPv6 loopback address).
+	</para>
+      </listitem>
+    </varlistentry>
+  </refsect1>
+
+  <refsect1>
+    <title>DATAFILE FORMAT</title>
+    <para>
+      The input file contains one line per query, consisting of a domain 
+      name and an RR type name separated by a space.
+      Lines beginning with a semicolon (;) are considered comments and
+      ignored.  Empty lines are ignored, too.
+    </para>
+    <para>
+      A line specifying a query can have optional arguments after
+      the RR type, also separated by a space.
+      Each optional argument must be in the form of
+      <replaceable>option_name</replaceable>=<replaceable>option_value</replaceable>.
+      The following are the currently supported options:
+    </para>
+
+    <varlistentry>
+      <term>
+        <command>serial</command>=<replaceable>IXFR-serial</replaceable>
+      </term>
+      <listitem>
+	<para>When this option is specified and the query RR type is
+	  IXFR, the query will include an SOA RR in the authority section
+	  whose owner name is the query name, and whose serial is the
+	  specified value.
+	  Including this RR will make the query a valid form of IXFR query;
+	  otherwise the server won't respond to it with an expected
+	  response, and the test result will be misleading.
+	  The option value must be an unsigned 32-bit decimal integer.
+	  This option is ignored for other types of queries than IXFR.
+	</para>
+      </listitem>
+    </varlistentry>
+
+  </refsect1>
+
+  <!--
+  <refsect1>
+    <title>SEE ALSO</title>
+    <para>
+      <citerefentry>
+        <refentrytitle>queryperf</refentrytitle><manvolnum>1</manvolnum>
+      </citerefentry>.
+    </para>
+  </refsect1>
+ -->
+  <refsect1>
+    <title>HISTORY</title>
+    <para>
+      The <command>queryperf++</command> utility was first implemented
+      by JINMEI Tatuya.  It was heavily inspired by the original C
+      version, but the implementation was fully rewritten from the scratch.
+    </para>
+  </refsect1>
+</refentry>
+<!--
+ - Local variables:
+ - mode: sgml
+ - End:
+-->

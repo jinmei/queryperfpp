@@ -87,7 +87,7 @@ usage() {
          << (DEFAULT_DNSSEC ? "on" : "off") << ")\n";
     cerr << "  -l sets how long to run tests in seconds (default: "
          << getDefaultDuration() << ")\n";
-    cerr << "  -L enable query preloading (default: disabled)\n";
+    cerr << "  -L enables query preloading (default: disabled)\n";
     cerr << "  -n sets the number of querying threads (default: "
          << DEFAULT_THREAD_COUNT << ")\n";
     cerr << "  -p sets the port on which to query the server (default: "

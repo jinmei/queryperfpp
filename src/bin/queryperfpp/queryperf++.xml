@@ -324,6 +324,40 @@
       </listitem>
     </varlistentry>
 
+    <example>
+      <title>A simple normal queries</title>
+      <para>This is a most common form of test data: defining a couple
+	of standard queries with a comment line.
+	<programlisting>
+	  ;; This is a comment
+	  www.example.com A
+	  ftp.example.org AAAA
+	</programlisting>
+      </para>
+    </example>
+
+    <example>
+      <title>AXFR query</title>
+      <para>This is nothing special other than the query type is AXFR.
+	In this case the transport should probably be set to TCP.
+	<programlisting>
+	  example.com AXFR
+	</programlisting>
+      </para>
+    </example>
+
+    <example>
+      <title>IXFR query</title>
+      <para>This is an example of test query for IXFR.  Note that the
+	SOA serial is specified as an option argument.  Like the AXFR
+	case, the TCP transport will probably have to be used (not
+	many server implementations support IXFR over UDP).
+	<programlisting>
+	  example.com IXFR serial=2012033100
+	</programlisting>
+      </para>
+    </example>
+
   </refsect1>
 
   <!--

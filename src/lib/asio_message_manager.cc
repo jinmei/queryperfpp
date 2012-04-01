@@ -23,6 +23,7 @@
 #include <boost/lexical_cast.hpp>
 
 #include <memory>
+#include <limits>
 #include <string>
 #include <iostream>
 
@@ -127,6 +128,7 @@ public:
                      io_service& io_service, const string& address,
                      uint16_t port, void* recvbuf, size_t recvbuf_len,
                      MessageSocket::Callback callback);
+    ~TCPMessageSocket() { delete aux_recvbuf_; }
     virtual void send(const void* data, size_t datalen);
     virtual void cancel();
     virtual int native() { return (asio_sock_.native()); }
@@ -161,7 +163,7 @@ private:
     void* recvbuf_;       // for the first message
     size_t recvbuf_len_;  // available size of recvbuf_
     size_t recvdata_len_; // actual message length of the first message
-    uint8_t aux_recvbuf_[65535]; // placeholder for subsequent messages
+    uint8_t* aux_recvbuf_; // placeholder for subsequent messages
     uint8_t msglen_placeholder_[2];
     boost::array<asio::const_buffer, 2> sendbufs_;
     bool cancelled_;
@@ -176,7 +178,7 @@ TCPMessageSocket::TCPMessageSocket(ASIOMessageManager* manager,
     manager_(manager), asio_sock_(io_service),
     dest_(asio::ip::address::from_string(address), port),
     callback_(callback), recvbuf_(recvbuf), recvbuf_len_(recvbuf_len),
-    recvdata_len_(0), cancelled_(false), completed_(false)
+    recvdata_len_(0), aux_recvbuf_(NULL), cancelled_(false), completed_(false)
 {
     // Note: we don't even open the socket yet.
 }
@@ -273,10 +275,12 @@ TCPMessageSocket::handleReadLength(const asio::error_code& ec, size_t length) {
     }
     const uint16_t msglen = msglen_placeholder_[0] * 256 +
         msglen_placeholder_[1];
-    assert(sizeof(aux_recvbuf_) >= msglen);
     // Now we are going to receive the main message.  We keep the first
     // message in recvbuf_ for callback, and hold others in the aux
     // buffer only temporarily.
+    if (recvdata_len_ > 0) {
+        aux_recvbuf_ = new uint8_t[numeric_limits<uint16_t>::max()];
+    }
     asio_sock_.async_receive(asio::buffer(
                                  recvdata_len_ == 0 ? recvbuf_ : aux_recvbuf_,
                                  msglen),

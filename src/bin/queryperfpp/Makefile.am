@@ -13,4 +13,4 @@ queryperf++.1: queryperf++.xml
 	xsltproc --novalid --xinclude --nonet -o $@ http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl queryperf++.xml
 endif
 
-EXTRA_DIST = queryperf++.xml
+EXTRA_DIST = $(man_MANS) queryperf++.xml

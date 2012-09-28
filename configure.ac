@@ -52,7 +52,7 @@ AC_ARG_WITH(bind10-lib,
 if test bind10_lib_path != "no"; then
 	BIND10_LDFLAGS="-L$bind10_lib_path/lib"
 fi
-BIND10_LDADD="-ldns++ -lutil -lexceptions"
+BIND10_LDADD="-lb10-dns++ -lb10-util -lb10-exceptions"
 
 CPPFLAGS_SAVED="$CPPFLAGS"
 CPPFLAGS="$CPPFLAGS $BIND10_INCLUDES"

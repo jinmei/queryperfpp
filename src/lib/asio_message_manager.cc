@@ -15,7 +15,11 @@
 #include <message_manager.h>
 #include <asio_message_manager.h>
 
+#ifdef HAVE_NONBOOST_ASIO
 #include <asio.hpp>
+#else
+#include <boost/asio.hpp>
+#endif
 
 #include <boost/shared_array.hpp>
 #include <boost/bind.hpp>
@@ -30,9 +34,13 @@
 #include <stdint.h>
 
 using namespace std;
-using asio::io_service;
-using asio::ip::udp;
-using asio::ip::tcp;
+#ifdef HAVE_NONBOOST_ASIO
+using namespace asio;
+#else
+using namespace boost::asio;
+using boost::system::error_code;
+using boost::system::system_error;
+#endif
 using boost::lexical_cast;
 
 namespace Queryperf {
@@ -62,10 +70,10 @@ public:
 
 private:
     // The handler for ASIO receive operations on this socket.
-    void handleRead(const asio::error_code& ec, size_t length);
+    void handleRead(const error_code& ec, size_t length);
 
 private:
-    udp::socket asio_sock_;
+    ip::udp::socket asio_sock_;
     MessageSocket::Callback callback_;
     bool receiving_;
     void* recvbuf_;
@@ -81,14 +89,13 @@ UDPMessageSocket::UDPMessageSocket(io_service& io_service,
 {
     try {
         // connect the socket, which implicitly opens a new one.
-        const udp::endpoint dest(asio::ip::address::from_string(address),
-                                 port);
+        const ip::udp::endpoint dest(ip::address::from_string(address), port);
         asio_sock_.connect(dest);
 
         // make sure the receive buffer is large enough (32KB, derived from
         // the original queryperf)
-        asio_sock_.set_option(asio::socket_base::receive_buffer_size(32768));
-    } catch (const asio::system_error& e) {
+        asio_sock_.set_option(socket_base::receive_buffer_size(32768));
+    } catch (const system_error& e) {
         throw MessageSocketError(string("Failed to create a socket: ") +
                                  e.what());
     }
@@ -96,14 +103,14 @@ UDPMessageSocket::UDPMessageSocket(io_service& io_service,
 
 void
 UDPMessageSocket::send(const void* data, size_t datalen) {
-    asio::error_code ec;
-    asio_sock_.send(asio::buffer(data, datalen), 0, ec);
+    error_code ec;
+    asio_sock_.send(buffer(data, datalen), 0, ec);
     if (ec) {
         throw MessageSocketError(string("Unexpected failure on socket send: ")
                                  + ec.message());
     }
     if (!receiving_) {
-        asio_sock_.async_receive(asio::buffer(recvbuf_, recvbuf_len_),
+        asio_sock_.async_receive(buffer(recvbuf_, recvbuf_len_),
                                  boost::bind(&UDPMessageSocket::handleRead,
                                              this, _1, _2));
         receiving_ = true;
@@ -111,13 +118,13 @@ UDPMessageSocket::send(const void* data, size_t datalen) {
 }
 
 void
-UDPMessageSocket::handleRead(const asio::error_code& ec, size_t length) {
+UDPMessageSocket::handleRead(const error_code& ec, size_t length) {
     if (ec) {
         throw MessageSocketError("unexpected failure on socket read: " +
                                  ec.message());
     }
     callback_(MessageSocket::Event(recvbuf_, length));
-    asio_sock_.async_receive(asio::buffer(recvbuf_, recvbuf_len_),
+    asio_sock_.async_receive(buffer(recvbuf_, recvbuf_len_),
                              boost::bind(&UDPMessageSocket::handleRead,
                                          this, _1, _2));
 }
@@ -134,16 +141,16 @@ public:
     virtual int native() { return (asio_sock_.native()); }
 
 private:
-    void handleConnect(const asio::error_code& ec);
-    void handleWrite(const asio::error_code& ec, size_t length);
-    void handleReadLength(const asio::error_code& ec, size_t length);
-    void handleReadData(const asio::error_code& ec, size_t length);
+    void handleConnect(const error_code& ec);
+    void handleWrite(const error_code& ec, size_t length);
+    void handleReadLength(const error_code& ec, size_t length);
+    void handleReadData(const error_code& ec, size_t length);
 
-    bool cancelCheck(const asio::error_code& ec) {
+    bool cancelCheck(const error_code& ec) {
         if (!cancelled_) {
             return (false);
         }
-        if (ec == asio::error::operation_aborted) {
+        if (ec == error::operation_aborted) {
             delete this;
         }
         return (true);
@@ -156,16 +163,16 @@ private:
 
 private:
     ASIOMessageManager* manager_;
-    tcp::socket asio_sock_;
-    asio::error_code asio_error_; // placeholder for getting ASIO error
-    tcp::endpoint dest_;
+    ip::tcp::socket asio_sock_;
+    error_code asio_error_; // placeholder for getting ASIO error
+    ip::tcp::endpoint dest_;
     MessageSocket::Callback callback_;
     void* recvbuf_;       // for the first message
     size_t recvbuf_len_;  // available size of recvbuf_
     size_t recvdata_len_; // actual message length of the first message
     uint8_t* aux_recvbuf_; // placeholder for subsequent messages
     uint8_t msglen_placeholder_[2];
-    boost::array<asio::const_buffer, 2> sendbufs_;
+    boost::array<const_buffer, 2> sendbufs_;
     bool cancelled_;
     bool completed_;
 };
@@ -176,7 +183,7 @@ TCPMessageSocket::TCPMessageSocket(ASIOMessageManager* manager,
                                    void* recvbuf, size_t recvbuf_len,
                                    MessageSocket::Callback callback) :
     manager_(manager), asio_sock_(io_service),
-    dest_(asio::ip::address::from_string(address), port),
+    dest_(ip::address::from_string(address), port),
     callback_(callback), recvbuf_(recvbuf), recvbuf_len_(recvbuf_len),
     recvdata_len_(0), aux_recvbuf_(NULL), cancelled_(false), completed_(false)
 {
@@ -187,9 +194,9 @@ void
 TCPMessageSocket::send(const void* data, size_t datalen) {
     msglen_placeholder_[0] = datalen >> 8;
     msglen_placeholder_[1] = (datalen & 0x00ff);
-    sendbufs_[0] = asio::buffer(msglen_placeholder_,
+    sendbufs_[0] = buffer(msglen_placeholder_,
                                 sizeof(msglen_placeholder_));
-    sendbufs_[1] = asio::buffer(data, datalen);
+    sendbufs_[1] = buffer(data, datalen);
     asio_sock_.async_connect(dest_,
                              boost::bind(&TCPMessageSocket::handleConnect,
                                          this, _1));
@@ -210,7 +217,7 @@ TCPMessageSocket::cancel() {
 }
 
 void
-TCPMessageSocket::handleConnect(const asio::error_code& ec) {
+TCPMessageSocket::handleConnect(const error_code& ec) {
     if (cancelCheck(ec)) {
         return;
     }
@@ -219,13 +226,12 @@ TCPMessageSocket::handleConnect(const asio::error_code& ec) {
         sendCallback(NULL, 0);
         return;
     }
-    asio::async_write(asio_sock_, sendbufs_,
-                      boost::bind(&TCPMessageSocket::handleWrite, this,
-                                  _1, _2));
+    async_write(asio_sock_, sendbufs_,
+                boost::bind(&TCPMessageSocket::handleWrite, this, _1, _2));
 }
 
 void
-TCPMessageSocket::handleWrite(const asio::error_code& ec, size_t) {
+TCPMessageSocket::handleWrite(const error_code& ec, size_t) {
     if (cancelCheck(ec)) {
         return;
     }
@@ -236,7 +242,7 @@ TCPMessageSocket::handleWrite(const asio::error_code& ec, size_t) {
     }
     // Immediately after sending the query, shutdown the outbound direction
     // of the socket, so the server won't wait for subsequent queries.
-    asio_sock_.shutdown(tcp::socket::shutdown_send, asio_error_);
+    asio_sock_.shutdown(ip::tcp::socket::shutdown_send, asio_error_);
     if (asio_error_) {
         cerr << "[Warn] failed to shut down TCP socket: "
              << asio_error_.message() << endl;
@@ -245,18 +251,18 @@ TCPMessageSocket::handleWrite(const asio::error_code& ec, size_t) {
     }
 
     // Then wait for the response.
-    asio_sock_.async_receive(asio::buffer(msglen_placeholder_,
-                                          sizeof(msglen_placeholder_)),
+    asio_sock_.async_receive(buffer(msglen_placeholder_,
+                                    sizeof(msglen_placeholder_)),
                              boost::bind(&TCPMessageSocket::handleReadLength,
                                          this, _1, _2));
 }
 
 void
-TCPMessageSocket::handleReadLength(const asio::error_code& ec, size_t length) {
+TCPMessageSocket::handleReadLength(const error_code& ec, size_t length) {
     if (cancelCheck(ec)) {
         return;
     }
-    if (ec == asio::error::eof) {
+    if (ec == error::eof) {
         // We've received all messages.  Note that this includes the case
         // where the server closes the connection without sending any message
         // or with partial message.
@@ -281,7 +287,7 @@ TCPMessageSocket::handleReadLength(const asio::error_code& ec, size_t length) {
     if (recvdata_len_ > 0) {
         aux_recvbuf_ = new uint8_t[numeric_limits<uint16_t>::max()];
     }
-    asio_sock_.async_receive(asio::buffer(
+    asio_sock_.async_receive(buffer(
                                  recvdata_len_ == 0 ? recvbuf_ : aux_recvbuf_,
                                  msglen),
                              boost::bind(&TCPMessageSocket::handleReadData,
@@ -289,11 +295,11 @@ TCPMessageSocket::handleReadLength(const asio::error_code& ec, size_t length) {
 }
 
 void
-TCPMessageSocket::handleReadData(const asio::error_code& ec, size_t length) {
+TCPMessageSocket::handleReadData(const error_code& ec, size_t length) {
     if (cancelCheck(ec)) {
         return;
     }
-    if (ec == asio::error::eof) {
+    if (ec == error::eof) {
         // We've received all messages.  This is an unexpected connection
         // termination by the server.  Do the callback with what we've had
         // so far anyway.
@@ -314,8 +320,8 @@ TCPMessageSocket::handleReadData(const asio::error_code& ec, size_t length) {
     // For now, we'll simply read and discard any subsequent message until
     // the server closes the connection, at which point we return the control
     // to the original caller with a callback.
-    asio_sock_.async_receive(asio::buffer(msglen_placeholder_,
-                                          sizeof(msglen_placeholder_)),
+    asio_sock_.async_receive(buffer(msglen_placeholder_,
+                                    sizeof(msglen_placeholder_)),
                              boost::bind(&TCPMessageSocket::handleReadLength,
                                          this, _1, _2));
 }
@@ -385,8 +391,7 @@ ASIOMessageManager::createMessageSocket(int proto, const string& address,
 
 class ASIOMessageTimer : public MessageTimer {
 public:
-    ASIOMessageTimer(asio::io_service& io_service,
-                     Callback callback) :
+    ASIOMessageTimer(io_service& io_service, Callback callback) :
         asio_timer_(io_service), callback_(callback)
     {}
     virtual void start(const boost::posix_time::time_duration& duration);
@@ -395,8 +400,8 @@ public:
 
 private:
     // The handler for ASIO timer expiration
-    void handleExpire(const asio::error_code& ec) {
-        if (ec == asio::error::operation_aborted) {
+    void handleExpire(const error_code& ec) {
+        if (ec == error::operation_aborted) {
             return;             // we ignore cancel event
         } else if (ec) {
             throw MessageTimerError(string("Unexpected error on timer: ") +
@@ -406,13 +411,13 @@ private:
     }
 
 private:
-    asio::deadline_timer asio_timer_;
+    deadline_timer asio_timer_;
     Callback callback_;
 };
 
 void
 ASIOMessageTimer::start(const boost::posix_time::time_duration& duration) {
-    asio::error_code ec;
+    error_code ec;
     asio_timer_.expires_from_now(duration, ec);
     if (ec) {
         throw MessageTimerError(string("Unexpected failure on setting timer: ")

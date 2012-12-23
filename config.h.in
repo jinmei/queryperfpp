@@ -1,8 +1,5 @@
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 
-/* Define to 1 if you have the <asio.hpp> header file. */
-#undef HAVE_ASIO_HPP
-
 /* Define to 1 if you have the <boost/bind.hpp> header file. */
 #undef HAVE_BOOST_BIND_HPP
 
@@ -20,6 +17,9 @@
 
 /* Define to 1 if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H
+
+/* Define to 1 if non-Boost version (header only) of ASIO is available */
+#undef HAVE_NONBOOST_ASIO
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #undef HAVE_STDINT_H

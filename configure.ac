@@ -24,11 +24,14 @@ fi
 
 # Check for the BIND 10 DNS library.
 if test "x$BIND10_DNS_LIB" = "x"; then
-   AC_MSG_ERROR([unable to find BIND 10 DNS library needed to build 'host'])
+   AC_MSG_ERROR([unable to find BIND 10 DNS library])
 fi
 
 # Check ASIO header path and its dependency if necessary
 AX_ASIO
+if test "X$ASIO_CPPFLAGS" = "X"; then
+   AC_MSG_ERROR([unable to find workable ASIO])
+fi
 
 # Checks for header files.
 

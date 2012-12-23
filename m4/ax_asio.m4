@@ -31,7 +31,7 @@ LDFLAGS_SAVED="$LDFLAGS"
 LIBS_SAVED="$LIBS"
 
 # If a non Boost header path is explicitly specified, try it first.
-if test "${asio_include_path}" != "no"; then
+if test "${asio_include_path}" -a "${asio_include_path}" != "no"; then
    AC_MSG_CHECKING([for non-Boost ASIO headers])
    ax_asio_cppflags="-I${asio_include_path}"
    CPPFLAGS="$CPPFLAGS $ax_asio_cppflags"

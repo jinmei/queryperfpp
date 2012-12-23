@@ -32,8 +32,8 @@ CPPFLAGS="$CPPFLAGS $BOOST_CPPFLAGS"
 AC_ARG_WITH([boost-lib],
   AS_HELP_STRING([--with-boost-lib=PATH],
     [specify exact directory for Boost libraries (needed if you use Boost ASIO]),
-    [boost_dirs="$withval"],
-    [boost_dirs="/usr/local/lib /usr/pkg/lib /opt/lib /opt/local/loib"])
+    [boostdirs="$withval"],
+    [boostdirs="/usr/local/lib /usr/pkg/lib /opt/lib /opt/local/loib"])
 
 # Search for available library; use the one found first.
 for d in $boostdirs; do
@@ -42,7 +42,7 @@ for d in $boostdirs; do
 		boost_rpath="${ISC_RPATH_FLAG}${d}"
 	fi
 	LDFLAGS="$LDFLAGS ${boost_ldflags}"
-	for l in boost_system, boost_system-mt; do
+	for l in boost_system boost_system-mt; do
 		LIBS=-l$l
 		AC_MSG_CHECKING([for Boost System library in $d with $l])
 		AC_TRY_LINK([

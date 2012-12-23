@@ -27,24 +27,8 @@ if test "x$BIND10_DNS_LIB" = "x"; then
    AC_MSG_ERROR([unable to find BIND 10 DNS library needed to build 'host'])
 fi
 
-#
-# Configure ASIO header path
-#
-# If explicitly specified, use it.
-AC_ARG_WITH([asio-include],
-  AC_HELP_STRING([--with-asio-include=PATH],
-    [specify exact directory for ASIO headers]),
-    [asio_include_path="$withval"])
-CPPFLAGS_SAVES="$CPPFLAGS"
-CPPFLAGS="$CPPFLAGS $BOOST_CPPFLAGS"
-if test "${asio_include_path}" ; then
-	ASIO_CPPFLAGS="-I${asio_include_path}"
-	CPPFLAGS="$CPPFLAGS $ASIO_CPPFLAGS"
-fi
-AC_CHECK_HEADERS([asio.hpp],,
-  AC_MSG_ERROR([Missing required header files.]))
-CPPFLAGS="$CPPFLAGS_SAVES"
-AC_SUBST(ASIO_CPPFLAGS)
+# Check ASIO header path and its dependency if necessary
+AX_ASIO
 
 # Checks for header files.
 

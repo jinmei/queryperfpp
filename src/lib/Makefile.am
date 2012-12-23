@@ -1,6 +1,6 @@
 SUBDIRS = . tests
 
-AM_CPPFLAGS = $(BOOST_INCLUDES) $(ASIO_INCLUDES) $(BIND10_INCLUDES)
+AM_CPPFLAGS = $(BOOST_CPPFLAGS) $(ASIO_CPPFLAGS) $(BIND10_CPPFLAGS)
 
 lib_LTLIBRARIES = libqueryperf++.la
 
@@ -12,4 +12,4 @@ libqueryperf___la_SOURCES += asio_message_manager.h asio_message_manager.cc
 libqueryperf___la_SOURCES += libqueryperfpp_fwd.h
 
 libqueryperf___la_LDFLAGS = ${BIND10_LDFLAGS}
-libqueryperf___la_LIBADD = ${BIND10_LDADD}
+libqueryperf___la_LIBADD = ${BIND10_DNS_LIB}

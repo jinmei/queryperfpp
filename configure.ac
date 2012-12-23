@@ -13,70 +13,68 @@ AC_PROG_LIBTOOL
 
 AC_LANG([C++])
 
-# Checks for libraries.
+# Checks for BIND 10 headers and libraries
+AX_ISC_BIND10
 
-# Check for BIND10 libdns++ headers
-AC_ARG_WITH(bind10-include,
-  AC_HELP_STRING([--with-bind10-include=PATH],
-  [specify a path to BIND 10 header files
-   (PATH, often needs to be in a BIND 10 source such as
-   <somewhere>/bind10/src/lib)]),
-    bind10_inc_path="$withval", bind10_inc_path="no")
-# If not specified, try some common paths.
-if test "$bind10_inc_path" = "no"; then
-	bind10dirs="/usr/local /usr/pkg /opt /opt/local"
-	for d in $bind10dirs
-	do
-		if test -f $d/dns/rrtype.h; then
-			bind10_inc_path=$d
-			break
-		fi
-	done
+# We use -R, -rpath etc so the resulting program will be more likekly to
+# "just work" whenever they are available.
+if test "x$BIND10_RPATH" != "x"; then
+   LDFLAGS="$LDFLAGS $BIND10_RPATH"
 fi
+
+# Check for the BIND 10 DNS library.
+if test "x$BIND10_DNS_LIB" = "x"; then
+   AC_MSG_ERROR([unable to find BIND 10 DNS library needed to build 'host'])
+fi
+
+#
+# Configure ASIO header path
+#
+# If explicitly specified, use it.
+AC_ARG_WITH([asio-include],
+  AC_HELP_STRING([--with-asio-include=PATH],
+    [specify exact directory for ASIO headers]),
+    [asio_include_path="$withval"])
 CPPFLAGS_SAVES="$CPPFLAGS"
-if test "${bind10_inc_path}" ; then
-	BIND10_INCLUDES="-I${bind10_inc_path}"
-	CPPFLAGS="$CPPFLAGS $BIND10_INCLUDES"
+CPPFLAGS="$CPPFLAGS $BOOST_CPPFLAGS"
+if test "${asio_include_path}" ; then
+	ASIO_CPPFLAGS="-I${asio_include_path}"
+	CPPFLAGS="$CPPFLAGS $ASIO_CPPFLAGS"
 fi
-AC_CHECK_HEADERS([dns/rrtype.h],,
-  AC_MSG_ERROR([Missing required BIND 10 header files.]))
+AC_CHECK_HEADERS([asio.hpp],,
+  AC_MSG_ERROR([Missing required header files.]))
 CPPFLAGS="$CPPFLAGS_SAVES"
-AC_SUBST(BIND10_INCLUDES)
+AC_SUBST(ASIO_CPPFLAGS)
 
-# Check for BIND10 lib libraries
-AC_ARG_WITH(bind10-lib,
-  AC_HELP_STRING([--with-bind10-lib=PATH],
-  [specify a path to BIND 10 library files (PATH/lib)]),
-    bind10_lib_path="$withval", bind10_lib_path="no")
+# Checks for header files.
 
-if test bind10_lib_path != "no"; then
-	BIND10_LDFLAGS="-L$bind10_lib_path/lib"
+# Checks for typedefs, structures, and compiler characteristics.
+
+werror_ok=0
+# Certain versions of gcc (g++) have a bug that incorrectly warns about
+# the use of anonymous name spaces even if they're closed in a single
+# translation unit.  For these versions we have to disable -Werror.
+CXXFLAGS_SAVED="$CXXFLAGS"
+CXXFLAGS="$CXXFLAGS -Werror"
+AC_MSG_CHECKING(for in-TU anonymous namespace breakage)
+AC_TRY_COMPILE([namespace { class Foo {}; }
+namespace isc {class Bar {Foo foo_;};} ],,
+	[AC_MSG_RESULT(no)
+	 werror_ok=1
+	 CXX_WERROR_FLAGS="-Werror"],
+	[AC_MSG_RESULT(yes)])
+CXXFLAGS="$CXXFLAGS_SAVED $CXX_WERROR_FLAGS"
+
+if test "X$GXX" = "Xyes"; then
+CXXFLAGS="$CXXFLAGS -Wall -Wextra -Wwrite-strings -Woverloaded-virtual -Wno-sign-compare"
 fi
-BIND10_LDADD="-lb10-dns++ -lb10-util -lb10-exceptions"
 
-CPPFLAGS_SAVED="$CPPFLAGS"
-CPPFLAGS="$CPPFLAGS $BIND10_INCLUDES"
-LDFLAGS_SAVED="$LDFLAGS"
-LDFLAGS="$LDFLAGS $BIND10_LDFLAGS"
-LIBS_SAVED=$LIBS
-LIBS="$LIBS $BIND10_LDADD"
+# Checks for library functions.
 
-AC_MSG_CHECKING([BIND 10 libraries])
-AC_TRY_LINK([
-#include <dns/rrtype.h>
-],[
-isc::dns::RRType rrtype(1);
-],
-[ AC_MSG_RESULT(yes)],
-[ AC_MSG_RESULT(no)
-  AC_MSG_ERROR(unable to find required BIND 10 libraries)])
-
-CPPFLAGS="$CPPFLAGS_SAVED"
-LDFLAGS="$LDFLAGS_SAVES"
-LIBS="$LIBS_SAVES"
-
-AC_SUBST(BIND10_LDFLAGS)
-AC_SUBST(BIND10_LDADD)
+# See if we need to be explicit for thread support
+PTHREAD_LDFLAGS=
+AC_CHECK_LIB(pthread, pthread_create,[ PTHREAD_LDFLAGS=-lpthread ], [])
+LDFLAGS="$LDFLAGS $PTHREAD_LDFLAGS"
 
 # Check for availability of (optional) gootletest.
 AC_ARG_WITH(gtest,
@@ -172,87 +170,9 @@ else
 fi
 AM_CONDITIONAL(HAVE_GTEST, test $gtest_path != "no")
 AC_SUBST(DISTCHECK_GTEST_CONFIGURE_FLAG)
-AC_SUBST(GTEST_INCLUDES)
+AC_SUBST(GTEST_CPPFLAGS)
 AC_SUBST(GTEST_LDFLAGS)
 AC_SUBST(GTEST_LDADD)
-
-#
-# Configure Boost header path
-#
-# If explicitly specified, use it.
-AC_ARG_WITH([boost-include],
-  AC_HELP_STRING([--with-boost-include=PATH],
-    [specify exact directory for Boost headers]),
-    [boost_include_path="$withval"])
-# If not specified, try some common paths.
-if test -z "$with_boost_include"; then
-	boostdirs="/usr/local /usr/pkg /opt /opt/local"
-	for d in $boostdirs
-	do
-		if test -f $d/include/boost/shared_ptr.hpp; then
-			boost_include_path=$d/include
-			break
-		fi
-	done
-fi
-CPPFLAGS_SAVES="$CPPFLAGS"
-if test "${boost_include_path}" ; then
-	BOOST_INCLUDES="-I${boost_include_path}"
-	CPPFLAGS="$CPPFLAGS $BOOST_INCLUDES"
-fi
-AC_CHECK_HEADERS([boost/shared_ptr.hpp boost/foreach.hpp boost/interprocess/sync/interprocess_upgradable_mutex.hpp boost/date_time/posix_time/posix_time_types.hpp boost/bind.hpp boost/function.hpp],,
-  AC_MSG_ERROR([Missing required header files.]))
-CPPFLAGS="$CPPFLAGS_SAVES"
-AC_SUBST(BOOST_INCLUDES)
-
-#
-# Configure ASIO header path
-#
-# If explicitly specified, use it.
-AC_ARG_WITH([asio-include],
-  AC_HELP_STRING([--with-asio-include=PATH],
-    [specify exact directory for ASIO headers]),
-    [asio_include_path="$withval"])
-CPPFLAGS_SAVES="$CPPFLAGS"
-CPPFLAGS="$CPPFLAGS $BOOST_INCLUDES"
-if test "${asio_include_path}" ; then
-	ASIO_INCLUDES="-I${asio_include_path}"
-	CPPFLAGS="$CPPFLAGS $ASIO_INCLUDES"
-fi
-AC_CHECK_HEADERS([asio.hpp],,
-  AC_MSG_ERROR([Missing required header files.]))
-CPPFLAGS="$CPPFLAGS_SAVES"
-AC_SUBST(ASIO_INCLUDES)
-
-# Checks for header files.
-
-# Checks for typedefs, structures, and compiler characteristics.
-
-werror_ok=0
-# Certain versions of gcc (g++) have a bug that incorrectly warns about
-# the use of anonymous name spaces even if they're closed in a single
-# translation unit.  For these versions we have to disable -Werror.
-CXXFLAGS_SAVED="$CXXFLAGS"
-CXXFLAGS="$CXXFLAGS -Werror"
-AC_MSG_CHECKING(for in-TU anonymous namespace breakage)
-AC_TRY_COMPILE([namespace { class Foo {}; }
-namespace isc {class Bar {Foo foo_;};} ],,
-	[AC_MSG_RESULT(no)
-	 werror_ok=1
-	 CXX_WERROR_FLAGS="-Werror"],
-	[AC_MSG_RESULT(yes)])
-CXXFLAGS="$CXXFLAGS_SAVED $CXX_WERROR_FLAGS"
-
-if test "X$GXX" = "Xyes"; then
-CXXFLAGS="$CXXFLAGS -Wall -Wextra -Wwrite-strings -Woverloaded-virtual -Wno-sign-compare"
-fi
-
-# Checks for library functions.
-
-# See if we need to be explicit for thread support
-PTHREAD_LDFLAGS=
-AC_CHECK_LIB(pthread, pthread_create,[ PTHREAD_LDFLAGS=-lpthread ], [])
-LDFLAGS="$LDFLAGS $PTHREAD_LDFLAGS"
 
 # Man pages (optional)
 AC_ARG_ENABLE(man, [AC_HELP_STRING([--enable-man],

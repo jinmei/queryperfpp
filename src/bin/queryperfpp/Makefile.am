@@ -1,6 +1,6 @@
 bin_PROGRAMS = queryperf++
 
-AM_CPPFLAGS = $(BOOST_INCLUDES)
+AM_CPPFLAGS = $(BOOST_CPPFLAGS)
 AM_CPPFLAGS += -I$(top_srcdir)/src/lib
 
 queryperf___SOURCES = queryperfpp.cc

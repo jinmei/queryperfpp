@@ -21,3 +21,5 @@ run_unittests_LDADD += $(GTEST_LDADD) $(BIND10_LDADD)
 endif
 
 noinst_PROGRAMS = $(TESTS)
+
+EXTRA_DIST=test-input.txt

@@ -32,7 +32,6 @@
 #include <pthread.h>
 #include <stdint.h>
 
-using namespace std;
 using namespace Queryperf;
 using namespace boost::posix_time;
 using boost::lexical_cast;
@@ -45,7 +44,7 @@ struct QueryStatistics {
 
     size_t queries_sent;
     size_t queries_completed;
-    vector<double> qps_results; // a list of QPS per worker thread
+    std::vector<double> qps_results; // a list of QPS per worker thread
 };
 
 double
@@ -70,34 +69,35 @@ const char* const DEFAULT_PROTOCOL = "udp";
 
 void
 usage() {
-    const string usage_head = "Usage: queryperf++ ";
-    const string indent(usage_head.size(), ' ');
-    cerr << usage_head
+    const std::string usage_head = "Usage: queryperf++ ";
+    const std::string indent(usage_head.size(), ' ');
+    std::cerr << usage_head
          << "[-C qclass] [-d datafile] [-D on|off] [-e on|off] [-l limit]\n";
-    cerr << indent
+    std::cerr << indent
          << "[-L] [-n #threads] [-p port] [-P udp|tcp] [-Q query_sequence]\n";
-    cerr << indent
+    std::cerr << indent
          << "[-s server_addr]\n";
-    cerr << "  -C sets default query class (default: "
+    std::cerr << "  -C sets default query class (default: "
          << DEFAULT_CLASS << ")\n";
-    cerr << "  -d sets the input data file (default: stdin)\n";
-    cerr << "  -D sets whether to set EDNS DO bit (default: "
+    std::cerr << "  -d sets the input data file (default: stdin)\n";
+    std::cerr << "  -D sets whether to set EDNS DO bit (default: "
          << (DEFAULT_EDNS ? "on" : "off") << ")\n";
-    cerr << "  -e sets whether to include EDNS (default: "
+    std::cerr << "  -e sets whether to include EDNS (default: "
          << (DEFAULT_DNSSEC ? "on" : "off") << ")\n";
-    cerr << "  -l sets how long to run tests in seconds (default: "
+    std::cerr << "  -l sets how long to run tests in seconds (default: "
          << getDefaultDuration() << ")\n";
-    cerr << "  -L enables query preloading (default: disabled)\n";
-    cerr << "  -n sets the number of querying threads (default: "
+    std::cerr << "  -L enables query preloading (default: disabled)\n";
+    std::cerr << "  -n sets the number of querying threads (default: "
          << DEFAULT_THREAD_COUNT << ")\n";
-    cerr << "  -p sets the port on which to query the server (default: "
+    std::cerr << "  -p sets the port on which to query the server (default: "
          << getDefaultPort() << ")\n";
-    cerr << "  -P sets transport protocol for queries (default: "
+    std::cerr << "  -P sets transport protocol for queries (default: "
          << DEFAULT_PROTOCOL << ")\n";
-    cerr << "  -Q sets newline-separated query data (default: unspecified)\n";
-    cerr << "  -s sets the server to query (default: " <<
-        Dispatcher::DEFAULT_SERVER << ")";
-    cerr << endl;
+    std::cerr
+        << "  -Q sets newline-separated query data (default: unspecified)\n";
+    std::cerr << "  -s sets the server to query (default: "
+              << Dispatcher::DEFAULT_SERVER << ")";
+    std::cerr << std::endl;
     exit(1);
 }
 
@@ -106,27 +106,28 @@ runQueryperf(void* arg) {
     Dispatcher* disp = static_cast<Dispatcher*>(arg);
     try {
         disp->run();
-    } catch (const exception& ex) {
-        cerr << "Worker thread died unexpectedly: " << ex.what() << endl;
+    } catch (const std::exception& ex) {
+        std::cerr << "Worker thread died unexpectedly: " << ex.what()
+                  << std::endl;
     }
     return (NULL);
 }
 
 typedef shared_ptr<Dispatcher> DispatcherPtr;
-typedef shared_ptr<stringstream> SStreamPtr;
+typedef shared_ptr<std::stringstream> SStreamPtr;
 
 bool
 parseOnOffFlag(const char* optname, const char* const optarg,
                bool default_val)
 {
     if (optarg != NULL) {
-        if (string(optarg) == "on") {
+        if (std::string(optarg) == "on") {
             return (true);
-        } else if (string(optarg) == "off") {
+        } else if (std::string(optarg) == "off") {
             return (false);
         } else {
-            cerr << "Option argument of "<< optname
-                 << " must be 'on' or 'off'" << endl;
+            std::cerr << "Option argument of "<< optname
+                      << " must be 'on' or 'off'" << std::endl;
             exit(1);
         }
     }
@@ -142,8 +143,9 @@ main(int argc, char* argv[]) {
     const char* edns_flag_txt = NULL;
     const char* server_address = Dispatcher::DEFAULT_SERVER;
     const char* proto_txt = DEFAULT_PROTOCOL;
-    string server_port_str = lexical_cast<string>(getDefaultPort());
-    string time_limit_str = lexical_cast<string>(getDefaultDuration());
+    std::string server_port_str = lexical_cast<std::string>(getDefaultPort());
+    std::string time_limit_str =
+        lexical_cast<std::string>(getDefaultDuration());
     const char* num_threads_txt = NULL;
     const char* query_txt = NULL;
     size_t num_threads = DEFAULT_THREAD_COUNT;
@@ -171,7 +173,7 @@ main(int argc, char* argv[]) {
             server_address = optarg;
             break;
         case 'p':
-            server_port_str = string(optarg);
+            server_port_str = std::string(optarg);
             break;
         case 'P':
             proto_txt = optarg;
@@ -180,7 +182,7 @@ main(int argc, char* argv[]) {
             query_txt = optarg;
             break;
         case 'l':
-            time_limit_str = string(optarg);
+            time_limit_str = std::string(optarg);
             break;
         case 'L':
             preload = true;
@@ -197,43 +199,46 @@ main(int argc, char* argv[]) {
         data_file = DEFAULT_DATA_FILE;
     }
     if (data_file != NULL && query_txt != NULL) {
-        cerr << "-d and -Q cannot be specified at the same time" << endl;
+        std::cerr << "-d and -Q cannot be specified at the same time"
+                  << std::endl;
         return (1);
     }
     const bool dnssec_flag = parseOnOffFlag("-D", dnssec_flag_txt,
                                             DEFAULT_DNSSEC);
     const bool edns_flag = parseOnOffFlag("-e", edns_flag_txt, DEFAULT_EDNS);
     if (!edns_flag && dnssec_flag) {
-        cerr << "[WARN] EDNS is disabled but DNSSEC is enabled; "
-             << "EDNS will still be included." << endl;
+        std::cerr << "[WARN] EDNS is disabled but DNSSEC is enabled; "
+                  << "EDNS will still be included." << std::endl;
     }
-    const string proto_str(proto_txt);
+    const std::string proto_str(proto_txt);
     if (proto_str != "udp" && proto_str != "tcp") {
-        cerr << "Invalid protocol: " << proto_str << endl;
+        std::cerr << "Invalid protocol: " << proto_str << std::endl;
         return (1);
     }
     const int proto = proto_str == "udp" ? IPPROTO_UDP : IPPROTO_TCP;
 
     try {
-        vector<DispatcherPtr> dispatchers;
-        vector<SStreamPtr> input_streams;
+        std::vector<DispatcherPtr> dispatchers;
+        std::vector<SStreamPtr> input_streams;
         if (num_threads_txt != NULL) {
             num_threads = lexical_cast<size_t>(num_threads_txt);
         }
-        if (num_threads > 1 && data_file != NULL && string(data_file) == "-") {
-            cerr << "stdin can be used as input only with 1 thread" << endl;
+        if (num_threads > 1 && data_file != NULL &&
+            std::string(data_file) == "-") {
+            std::cerr << "stdin can be used as input only with 1 thread"
+                      << std::endl;
             return (1);
         }
 
         // Prepare
-        cout << "[Status] Processing input data" << endl;
+        std::cout << "[Status] Processing input data" << std::endl;
         for (size_t i = 0; i < num_threads; ++i) {
             DispatcherPtr disp;
             if (data_file != NULL) {
                 disp.reset(new Dispatcher(data_file));
             } else {
                 assert(query_txt != NULL);
-                SStreamPtr ss(new stringstream(query_txt));
+                SStreamPtr ss(new std::stringstream(query_txt));
                 disp.reset(new Dispatcher(*ss));
                 input_streams.push_back(ss);
             }
@@ -252,17 +257,17 @@ main(int argc, char* argv[]) {
         }
 
         // Run
-        cout << "[Status] Sending queries to " << server_address
-             << " over " << proto_str << ", port " << server_port_str << endl;
-        vector<pthread_t> threads;
+        std::cout << "[Status] Sending queries to " << server_address
+             << " over " << proto_str << ", port " << server_port_str << std::endl;
+        std::vector<pthread_t> threads;
         const ptime start_time = microsec_clock::local_time();
         for (size_t i = 0; i < num_threads; ++i) {
             pthread_t th;
             const int error = pthread_create(&th, NULL, runQueryperf,
                                              dispatchers[i].get());
             if (error != 0) {
-                throw runtime_error(
-                    string("Failed to create a worker thread: ") +
+                throw std::runtime_error(
+                    std::string("Failed to create a worker thread: ") +
                     strerror(error));
             }
             threads.push_back(th);
@@ -272,71 +277,75 @@ main(int argc, char* argv[]) {
             const int error = pthread_join(threads[i], NULL);
             if (error != 0) {
                 // if join failed, we warn about it and just continue anyway
-                cerr << "pthread_join failed: " << strerror(error) << endl;
+                std::cerr
+                    << "pthread_join failed: " << strerror(error) << std::endl;
             }
         }
         const ptime end_time = microsec_clock::local_time();
-        cout << "[Status] Testing complete" << endl;
+        std::cout << "[Status] Testing complete" << std::endl;
 
         // Accumulate per-thread statistics.  Print the summary QPS for each,
         // and if more than one thread was used, print the sum of them.
-        cout << "\nStatistics:\n\n";
+        std::cout << "\nStatistics:\n\n";
 
         QueryStatistics result;
         double total_qps = 0;
-        cout.precision(6);
+        std::cout.precision(6);
         for (size_t i = 0; i < num_threads; ++i) {
             const double qps = accumulateResult(*dispatchers[i], result);
             total_qps += qps;
-            cout << "  Queries per second #" << i <<
-                ":  " << fixed << qps << " qps\n";
+            std::cout << "  Queries per second #" << i <<
+                ":  " << std::fixed << qps << " qps\n";
         }
         if (num_threads > 1) {
-            cout << "         Summarized QPS:  " << fixed << total_qps
+            std::cout << "         Summarized QPS:  " << std::fixed << total_qps
                  << " qps\n";
         }
-        cout << endl;
+        std::cout << std::endl;
 
         // Print the total result.
-        cout << "  Queries sent:         " << result.queries_sent
+        std::cout << "  Queries sent:         " << result.queries_sent
              << " queries\n";
-        cout << "  Queries completed:    " << result.queries_completed
+        std::cout << "  Queries completed:    " << result.queries_completed
              << " queries\n";
-        cout << "\n";
+        std::cout << "\n";
 
-        cout << "  Percentage completed: " << setprecision(2);
+        std::cout << "  Percentage completed: " << std::setprecision(2);
         if (result.queries_sent > 0) {
-            cout << setw(6) << (static_cast<double>(result.queries_completed) /
-                                result.queries_sent) * 100 << "%\n";
+            std::cout << std::setw(6)
+                      << (static_cast<double>(result.queries_completed) /
+                          result.queries_sent) * 100 << "%\n";
         } else {
-            cout << "N/A\n";
+            std::cout << "N/A\n";
         }
-        cout << "  Percentage lost:      ";
+        std::cout << "  Percentage lost:      ";
         if (result.queries_sent > 0) {
             const size_t lost_count = result.queries_sent -
                 result.queries_completed;
-            cout << setw(6) << (static_cast<double>(lost_count) /
-                                result.queries_sent) * 100 << "%\n";
+            std::cout << std::setw(6) << (static_cast<double>(lost_count) /
+                                          result.queries_sent) * 100 << "%\n";
         } else {
-            cout << "N/A\n";
+            std::cout << "N/A\n";
         }
-        cout << "\n";
+        std::cout << "\n";
 
-        cout << "  Started at:           " << start_time << endl;
-        cout << "  Finished at:          " << end_time << endl;
+        std::cout << "  Started at:           " << start_time << std::endl;
+        std::cout << "  Finished at:          " << end_time << std::endl;
         const time_duration duration = end_time - start_time;
-        cout << "  Run for:              " << setprecision(6)
-             << (static_cast<double>(duration.total_microseconds()) / 1000000)
-             << " seconds\n";
-        cout << "\n";
+        std::cout
+            << "  Run for:              " << std::setprecision(6)
+            << (static_cast<double>(duration.total_microseconds()) / 1000000)
+            << " seconds\n";
+        std::cout << "\n";
 
         const double qps = result.queries_completed / (
             static_cast<double>(duration.total_microseconds()) / 1000000);
-        cout.precision(6);
-            cout << "  Queries per second:   " << fixed << qps << " qps\n";
-            cout << endl;
-    } catch (const exception& ex) {
-        cerr << "Unexpected failure: " << ex.what() << endl;
+        std::cout.precision(6);
+        std::cout << "  Queries per second:   " << std::fixed << qps
+                  << " qps\n";
+        std::cout << std::endl;
+    } catch (const std::exception& ex) {
+        std::cerr << "Unexpected failure: " << ex.what() << std::endl;
         return (1);
     }
 

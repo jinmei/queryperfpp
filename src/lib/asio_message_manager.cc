@@ -35,7 +35,6 @@
 
 #include <stdint.h>
 
-using namespace std;
 #ifdef HAVE_NONBOOST_ASIO
 using namespace asio;
 #else
@@ -60,7 +59,7 @@ public:
 namespace {
 class UDPMessageSocket : public ASIOMessageSocket::ASIOMessageSocketImpl {
 public:
-    UDPMessageSocket(io_service& io_service, const string& address,
+    UDPMessageSocket(io_service& io_service, const std::string& address,
                      uint16_t port, void* recvbuf, size_t recvbuf_len,
                      MessageSocket::Callback callback);
     virtual void send(const void* data, size_t datalen);
@@ -83,7 +82,7 @@ private:
 };
 
 UDPMessageSocket::UDPMessageSocket(io_service& io_service,
-                                   const string& address, uint16_t port,
+                                   const std::string& address, uint16_t port,
                                    void* recvbuf, size_t recvbuf_len,
                                    MessageSocket::Callback callback) :
     asio_sock_(io_service), callback_(callback), receiving_(false),
@@ -98,7 +97,7 @@ UDPMessageSocket::UDPMessageSocket(io_service& io_service,
         // the original queryperf)
         asio_sock_.set_option(socket_base::receive_buffer_size(32768));
     } catch (const system_error& e) {
-        throw MessageSocketError(string("Failed to create a socket: ") +
+        throw MessageSocketError(std::string("Failed to create a socket: ") +
                                  e.what());
     }
 }
@@ -108,8 +107,8 @@ UDPMessageSocket::send(const void* data, size_t datalen) {
     error_code ec;
     asio_sock_.send(buffer(data, datalen), 0, ec);
     if (ec) {
-        throw MessageSocketError(string("Unexpected failure on socket send: ")
-                                 + ec.message());
+        throw MessageSocketError(
+            std::string("Unexpected failure on socket send: ") + ec.message());
     }
     if (!receiving_) {
         asio_sock_.async_receive(buffer(recvbuf_, recvbuf_len_),
@@ -133,9 +132,8 @@ UDPMessageSocket::handleRead(const error_code& ec, size_t length) {
 
 class TCPMessageSocket : public ASIOMessageSocket::ASIOMessageSocketImpl {
 public:
-    TCPMessageSocket(ASIOMessageManager* manager,
-                     io_service& io_service, const string& address,
-                     uint16_t port, void* recvbuf, size_t recvbuf_len,
+    TCPMessageSocket(io_service& io_service, const std::string& address,
+                     uint16_t port, void* recvbuf,
                      MessageSocket::Callback callback);
     ~TCPMessageSocket() { delete aux_recvbuf_; }
     virtual void send(const void* data, size_t datalen);
@@ -164,13 +162,12 @@ private:
     }
 
 private:
-    ASIOMessageManager* manager_;
+    //ASIOMessageManager* manager_;
     ip::tcp::socket asio_sock_;
     error_code asio_error_; // placeholder for getting ASIO error
     ip::tcp::endpoint dest_;
     MessageSocket::Callback callback_;
-    void* recvbuf_;       // for the first message
-    size_t recvbuf_len_;  // available size of recvbuf_
+    void* recvbuf_;       // for the first message (must be of > 64KB)
     size_t recvdata_len_; // actual message length of the first message
     uint8_t* aux_recvbuf_; // placeholder for subsequent messages
     uint8_t msglen_placeholder_[2];
@@ -179,15 +176,14 @@ private:
     bool completed_;
 };
 
-TCPMessageSocket::TCPMessageSocket(ASIOMessageManager* manager,
-                                   io_service& io_service,
-                                   const string& address, uint16_t port,
-                                   void* recvbuf, size_t recvbuf_len,
+TCPMessageSocket::TCPMessageSocket(io_service& io_service,
+                                   const std::string& address, uint16_t port,
+                                   void* recvbuf,
                                    MessageSocket::Callback callback) :
-    manager_(manager), asio_sock_(io_service),
+    asio_sock_(io_service),
     dest_(ip::address::from_string(address), port),
-    callback_(callback), recvbuf_(recvbuf), recvbuf_len_(recvbuf_len),
-    recvdata_len_(0), aux_recvbuf_(NULL), cancelled_(false), completed_(false)
+    callback_(callback), recvbuf_(recvbuf), recvdata_len_(0),
+    aux_recvbuf_(NULL), cancelled_(false), completed_(false)
 {
     // Note: we don't even open the socket yet.
 }
@@ -224,7 +220,7 @@ TCPMessageSocket::handleConnect(const error_code& ec) {
         return;
     }
     if (ec) {
-        cerr << "[Warn] TCP connect failed: " << ec.message() << endl;
+        std::cerr << "[Warn] TCP connect failed: " << ec.message() << std::endl;
         sendCallback(NULL, 0);
         return;
     }
@@ -238,7 +234,7 @@ TCPMessageSocket::handleWrite(const error_code& ec, size_t) {
         return;
     }
     if (ec) {
-        cerr << "[Warn] TCP send failed: " << ec.message() << endl;
+        std::cerr << "[Warn] TCP send failed: " << ec.message() << std::endl;
         sendCallback(NULL, 0);
         return;
     }
@@ -246,8 +242,8 @@ TCPMessageSocket::handleWrite(const error_code& ec, size_t) {
     // of the socket, so the server won't wait for subsequent queries.
     asio_sock_.shutdown(ip::tcp::socket::shutdown_send, asio_error_);
     if (asio_error_) {
-        cerr << "[Warn] failed to shut down TCP socket: "
-             << asio_error_.message() << endl;
+        std::cerr << "[Warn] failed to shut down TCP socket: "
+                  << asio_error_.message() << std::endl;
         sendCallback(NULL, 0);
         return;
     }
@@ -272,14 +268,15 @@ TCPMessageSocket::handleReadLength(const error_code& ec, size_t length) {
         return;
     }
     if (ec) {
-        cerr << "[Warn] failed to read TCP message length: "
-             << ec.message() << endl;
+        std::cerr << "[Warn] failed to read TCP message length: "
+                  << ec.message() << std::endl;
         sendCallback(NULL, 0);
         return;
     }
     if (length != sizeof(msglen_placeholder_)) {
         throw MessageSocketError("received unexpected size of data for "
-                                 "msglen: " + lexical_cast<string>(length));
+                                 "msglen: " +
+                                 lexical_cast<std::string>(length));
     }
     const uint16_t msglen = msglen_placeholder_[0] * 256 +
         msglen_placeholder_[1];
@@ -287,7 +284,7 @@ TCPMessageSocket::handleReadLength(const error_code& ec, size_t length) {
     // message in recvbuf_ for callback, and hold others in the aux
     // buffer only temporarily.
     if (recvdata_len_ > 0) {
-        aux_recvbuf_ = new uint8_t[numeric_limits<uint16_t>::max()];
+        aux_recvbuf_ = new uint8_t[std::numeric_limits<uint16_t>::max()];
     }
     asio_sock_.async_receive(buffer(
                                  recvdata_len_ == 0 ? recvbuf_ : aux_recvbuf_,
@@ -309,7 +306,8 @@ TCPMessageSocket::handleReadData(const error_code& ec, size_t length) {
         return;
     }
     if (ec) {
-        cerr << "[Warn] failed to read TCP message: " << ec.message() << endl;
+        std::cerr << "[Warn] failed to read TCP message: " << ec.message()
+                  << std::endl;
         sendCallback(NULL, recvdata_len_);
         return;
     }
@@ -359,7 +357,7 @@ ASIOMessageManager::~ASIOMessageManager() {
 }
 
 MessageSocket*
-ASIOMessageManager::createMessageSocket(int proto, const string& address,
+ASIOMessageManager::createMessageSocket(int proto, const std::string& address,
                                         uint16_t port,
                                         void* recvbuf, size_t recvbuf_len,
                                         MessageSocket::Callback callback)
@@ -370,7 +368,7 @@ ASIOMessageManager::createMessageSocket(int proto, const string& address,
         throw MessageSocketError("null socket callback specified");
     }
     if (proto == IPPROTO_UDP) {
-        auto_ptr<UDPMessageSocket> impl_p(
+        std::auto_ptr<UDPMessageSocket> impl_p(
             new UDPMessageSocket(impl_->io_service_, address, port,
                                  recvbuf, recvbuf_len, callback));
         ret = new ASIOMessageSocket(impl_p.get());
@@ -380,15 +378,15 @@ ASIOMessageManager::createMessageSocket(int proto, const string& address,
         if (recvbuf_len < 65535) { // must be able to hold a full TCP msg
             throw MessageSocketError("Insufficient TCP receive buffer");
         }
-        auto_ptr<TCPMessageSocket> impl_p(
-            new TCPMessageSocket(this, impl_->io_service_, address, port,
-                                 recvbuf, recvbuf_len, callback));
+        std::auto_ptr<TCPMessageSocket> impl_p(
+            new TCPMessageSocket(impl_->io_service_, address, port, recvbuf,
+                                 callback));
         ret = new ASIOMessageSocket(impl_p.get());
         impl_p.release();
         return (ret);
     }
     throw MessageSocketError("unsupported or invalid protocol: " +
-                             lexical_cast<string>(proto));
+                             lexical_cast<std::string>(proto));
 }
 
 class ASIOMessageTimer : public MessageTimer {
@@ -406,7 +404,7 @@ private:
         if (ec == error::operation_aborted) {
             return;             // we ignore cancel event
         } else if (ec) {
-            throw MessageTimerError(string("Unexpected error on timer: ") +
+            throw MessageTimerError(std::string("Unexpected error on timer: ") +
                                     ec.message());
         }
         callback_();
@@ -422,8 +420,9 @@ ASIOMessageTimer::start(const boost::posix_time::time_duration& duration) {
     error_code ec;
     asio_timer_.expires_from_now(duration, ec);
     if (ec) {
-        throw MessageTimerError(string("Unexpected failure on setting timer: ")
-                                + ec.message());
+        throw MessageTimerError(
+            std::string("Unexpected failure on setting timer: ") +
+            ec.message());
     }
     asio_timer_.async_wait(boost::bind(&ASIOMessageTimer::handleExpire, this,
                                        _1));

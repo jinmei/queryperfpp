@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.59])
-AC_INIT(queryperfpp, 0.9, jinmei@wide.ad.jp)
+AC_INIT(queryperfpp, 0.9.0, jinmei@wide.ad.jp)
 AC_CONFIG_SRCDIR(README)
 AM_INIT_AUTOMAKE
 AC_CONFIG_HEADERS([config.h])

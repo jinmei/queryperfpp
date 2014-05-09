@@ -28,7 +28,6 @@
 
 #include <netinet/in.h>
 
-using namespace std;
 using namespace isc::util;
 using namespace isc::dns;
 
@@ -74,13 +73,13 @@ TestMessageManager::createMessageSocket(int proto,
     TestMessageSocket* ret;
     if (proto == IPPROTO_UDP) {
         if (socket_ != NULL) {
-            throw runtime_error("duplicate socket creation");
+            throw std::runtime_error("duplicate socket creation");
         }
         socket_ = new TestMessageSocket(callback);
         ret = socket_;
     } else {
         assert(proto == IPPROTO_TCP);
-        auto_ptr<TestMessageSocket> p(new TestMessageSocket(callback));
+        std::auto_ptr<TestMessageSocket> p(new TestMessageSocket(callback));
         tcp_sockets_.push_back(p.get());
         ret = p.release();   // give the ownership
     }
@@ -91,7 +90,7 @@ TestMessageManager::createMessageSocket(int proto,
 
 MessageTimer*
 TestMessageManager::createMessageTimer(MessageTimer::Callback callback) {
-    auto_ptr<TestMessageTimer> p(new TestMessageTimer(callback));
+    std::auto_ptr<TestMessageTimer> p(new TestMessageTimer(callback));
     timers_.push_back(p.get());
     return (p.release()); // give the ownership
 }
@@ -99,7 +98,7 @@ TestMessageManager::createMessageTimer(MessageTimer::Callback callback) {
 void
 TestMessageManager::run() {
     if (running_) {
-        throw runtime_error("Test message manager: duplicate run");
+        throw std::runtime_error("Test message manager: duplicate run");
     }
     running_ = true;
 
@@ -117,7 +116,7 @@ TestMessageManager::run() {
 void
 TestMessageManager::stop() {
     if (!running_) {
-        throw runtime_error("Test message manager: stopping before start");
+        throw std::runtime_error("Test message manager: stopping before start");
     }
     running_ = false;
 }

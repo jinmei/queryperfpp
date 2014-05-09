@@ -8,7 +8,7 @@ which are unique to queryperf++ as far as the author knows:
   particular, it can be used to measure server performance on AXFR or
   IXFR over TCP.
 - It allows multiple threads to send test queries to the tested server
-  in concurrent.  It will help get more reliable results on
+  in parallel.  It will help get more reliable results on
   performance of some very high-performance server implementations or
   in test scenarios that require more complicated tasks at the querier
   side.
@@ -76,7 +76,7 @@ just work for building queryperf++:
 % make
 
 I have successfully built queryperf++ with several versions of g++ on
-FreeBSD and Linux, and with clang++ 3.1 on MacOS Lion.
+FreeBSD and Linux, and with clang++ 3.4 on MacOS Mavericks.
 
 ******************** HOW TO USE queryperf++ ********************
 

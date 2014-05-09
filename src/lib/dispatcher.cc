@@ -43,7 +43,6 @@ using namespace isc::util;
 using namespace isc::dns;
 using namespace Queryperf;
 using boost::scoped_ptr;
-using boost::shared_ptr;
 using namespace boost::posix_time;
 using boost::posix_time::seconds;
 
@@ -109,13 +108,13 @@ private:
     QueryContext* ctx_;
     qid_t qid_;
     RestartCallback restart_callback_;
-    shared_ptr<MessageTimer> timer_;
+    boost::shared_ptr<MessageTimer> timer_;
     MessageSocket* tcp_sock_;
     static const size_t TCP_RCVBUF_LEN = 65535;
     uint8_t* tcp_rcvbuf_;      // lazily allocated
 };
 
-typedef shared_ptr<QueryEvent> QueryEventPtr;
+typedef boost::shared_ptr<QueryEvent> QueryEventPtr;
 } // unnamed namespace
 
 namespace Queryperf {
@@ -225,7 +224,7 @@ struct Dispatcher::DispatcherImpl {
     size_t window_;
     qid_t qid_;
     Message response_;          // placeholder for response messages
-    list<shared_ptr<QueryEvent> > outstanding_;
+    list<boost::shared_ptr<QueryEvent> > outstanding_;
 
     // statistics
     size_t queries_sent_;
@@ -261,7 +260,7 @@ Dispatcher::DispatcherImpl::run() {
 
     // Record the start time and dispatch initial queries at once.
     start_time_ = microsec_clock::local_time();
-    BOOST_FOREACH(shared_ptr<QueryEvent>& qev, outstanding_) {
+    BOOST_FOREACH(boost::shared_ptr<QueryEvent>& qev, outstanding_) {
         sendQuery(*qev, qev->start(qid_, query_timeout_));
     }
 
@@ -303,7 +302,7 @@ Dispatcher::DispatcherImpl::responseTCPCallback(
 void
 Dispatcher::DispatcherImpl::restartQuery(qid_t qid, const Message* response) {
     // Identify the matching query from the outstanding queue.
-    const list<shared_ptr<QueryEvent> >::iterator qev_it =
+    const list<boost::shared_ptr<QueryEvent> >::iterator qev_it =
         find_if(outstanding_.begin(), outstanding_.end(),
                 boost::bind(&QueryEvent::matchResponse, _1, qid));
     if (qev_it != outstanding_.end()) {

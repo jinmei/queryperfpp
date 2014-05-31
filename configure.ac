@@ -22,6 +22,14 @@ if test "x$BIND10_RPATH" != "x"; then
    LDFLAGS="$LDFLAGS $BIND10_RPATH"
 fi
 
+# See if we need to be explicit for thread support.  While queryperf++ itself
+# doesn't require multi-thread support for external packages it depends on,
+# checking this sooner may help avoid ./configure failure in case these
+# packages internally require thread support.
+PTHREAD_LDFLAGS=
+AC_CHECK_LIB(pthread, pthread_create,[ PTHREAD_LDFLAGS=-lpthread ], [])
+LDFLAGS="$LDFLAGS $PTHREAD_LDFLAGS"
+
 # Check for the BIND 10 DNS library.
 if test "x$BIND10_DNS_LIB" = "x"; then
    AC_MSG_ERROR([unable to find BIND 10 DNS library])
@@ -55,13 +63,6 @@ CXXFLAGS="$CXXFLAGS_SAVED $CXX_WERROR_FLAGS"
 if test "X$GXX" = "Xyes"; then
 CXXFLAGS="$CXXFLAGS -Wall -Wextra -Wwrite-strings -Woverloaded-virtual -Wno-sign-compare"
 fi
-
-# Checks for library functions.
-
-# See if we need to be explicit for thread support
-PTHREAD_LDFLAGS=
-AC_CHECK_LIB(pthread, pthread_create,[ PTHREAD_LDFLAGS=-lpthread ], [])
-LDFLAGS="$LDFLAGS $PTHREAD_LDFLAGS"
 
 # Check for availability of (optional) gootletest.
 AC_ARG_WITH(gtest,

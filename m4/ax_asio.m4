@@ -33,7 +33,9 @@ LIBS_SAVED="$LIBS"
 # If a non Boost header path is explicitly specified, try it first.
 if test "${asio_include_path}" -a "${asio_include_path}" != "no"; then
    AC_MSG_CHECKING([for non-Boost ASIO headers])
-   ax_asio_cppflags="-I${asio_include_path}"
+   # we don't need thread support in ASIO.  this helps avoid unexpected
+   # ./configure failure.
+   ax_asio_cppflags="-I${asio_include_path} -DASIO_DISABLE_THREADS=1"
    CPPFLAGS="$CPPFLAGS $ax_asio_cppflags"
    AC_TRY_LINK([
 #include <asio.hpp>

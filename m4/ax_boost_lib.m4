@@ -17,7 +17,7 @@ dnl   BOOST_RPATH
 dnl
 
 AC_DEFUN([AX_BOOST_LIB], [
-AC_REQUIRE([AX_ISC_RPATH])
+AC_REQUIRE([AX_BUNDY_RPATH])
 AC_REQUIRE([AX_BOOST_INCLUDE])
 AC_LANG_SAVE
 AC_LANG([C++])
@@ -38,8 +38,8 @@ AC_ARG_WITH([boost-lib],
 # Search for available library; use the one found first.
 for d in $boostdirs; do
 	boost_ldflags=-L$d
-	if test "x$ISC_RPATH_FLAG" != "x"; then
-		boost_rpath="${ISC_RPATH_FLAG}${d}"
+	if test "x$BUNDY_RPATH_FLAG" != "x"; then
+		boost_rpath="${BUNDY_RPATH_FLAG}${d}"
 	fi
 	LDFLAGS="$LDFLAGS ${boost_ldflags}"
 	for l in boost_system boost_system-mt; do

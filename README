@@ -27,34 +27,34 @@ library and build their own test programs.
 
 *********************** DEPENDENCIES ***********************
 
-queryperf++ depends on the C++ DNS library provided as part of ISC
-BIND 10 (which is available at ftp://ftp.isc.org/isc/bind10/).  It
-also depends on the Boost C++ library (only header files are needed,
-available at http://www.boost.org/), and the default implementation
-uses the ASIO library (non Boost, header only version; available at
+queryperf++ depends on the C++ DNS library provided as part of Bundy
+DNS (which is available at http://bundy-dns.de). It also depends on
+the Boost C++ library (only header files are needed, available at
+http://www.boost.org/), and the default implementation uses the ASIO
+library (non Boost, header only version; available at
 http://think-async.com/) for network I/O and timer management.  Since
-BIND 10 itself depends on both Boost and ASIO, queryperf++ essentially
-only depends on BIND 10.  See the next section for more specific
+Bundy itself depends on both Boost and ASIO, queryperf++ essentially
+only depends on Bundy.  See the next section for more specific
 details on how to build it.
 
 ******************** HOW TO BUILD queryperf++ *********************
 
-As noted in the previous section, queryperf++ depends on ISC BIND 10.
+As noted in the previous section, queryperf++ depends on Bundy.
 You'll first need to get, build, and install it.  We refer to the
-installation directory of BIND 10 as ${BIND10_INSTALL_DIR} below (so,
-for example, the binary file of libdns++ should be found at
-${BIND10_INSTALL_DIR}/lib).  Also, as of this writing, installed
-header files of BIND 10 are not sufficient to build third party
-applications like queryperf++.  So, in practice, you'll also need to
-have an extracted source tree of BIND 10 somewhere and have
-queryperf++ look for some header files there.  We refer to the top
-directory of the BIND 10 source tree as ${BIND10_SRC_DIR}.  So, for
-example, you should be able to find a header file named name.h under
-${BIND10_SRC_DIR}/src/lib/dns.  Note that you first need to build BIND
-10 in the source tree because some of the necessary header files are
-dynamically generated during the build process.
+installation directory of Bundy as ${BUNDY_INSTALL_DIR} below (so, for
+example, the binary file of libdns++ should be found at
+${BUNDY_INSTALL_DIR}/lib).  Also, as of this writing, installed header
+files of Bundy are not sufficient to build third party applications
+like queryperf++.  So, in practice, you'll also need to have an
+extracted source tree of Bundy somewhere and have queryperf++ look for
+some header files there.  We refer to the top directory of the Bundy
+source tree as ${BUNDY_SRC_DIR}.  So, for example, you should be able
+to find a header file named name.h under ${BUNDY_SRC_DIR}/src/lib/dns.
+Note that you first need to build Bundy in the source tree because
+some of the necessary header files are dynamically generated during
+the build process.
 
-If you have successfully built BIND 10, you should already have Boost
+If you have successfully built Bundy, you should already have Boost
 installed somewhere in your system (note, again, that queryperf++ only
 needs Boost header files).  We refer to the install directory where
 the 'boost' subdirectory is located as ${BOOST_HEADER_DIR}.  You
@@ -62,17 +62,17 @@ should be able to find a file named version.hpp in the
 ${BOOST_HEADER_DIR}/boost directory.
 
 Finally, you need ASIO header files.  The easiest way for this set up
-is to use the ones included in the BIND 10 source tree.  We assume you
+is to use the ones included in the Bundy source tree.  We assume you
 do it below.
 
-Once you install all dependencies and set BIND10_INSTALL_DIR,
-BIND10_SRC_DIR, and BOOST_HEADER_DIR, the following step should
+Once you install all dependencies and set BUNDY_INSTALL_DIR,
+BUNDY_SRC_DIR, and BOOST_HEADER_DIR, the following step should
 just work for building queryperf++:
 
 % ./configure --with-boost-include=${BOOST_HEADER_DIR} \
-    --with-bind10-include=${BIND10_SRC_DIR}/src/lib \
-    --with-bind10-lib=${BIND10_INSTALL_DIR} \
-    --with-asio-include=${BIND10_SRC_DIR}/ext/asio
+    --with-bind10-include=${BUNDY_SRC_DIR}/src/lib \
+    --with-bind10-lib=${BUNDY_INSTALL_DIR} \
+    --with-asio-include=${BUNDY_SRC_DIR}/ext/asio
 % make
 
 I have successfully built queryperf++ with several versions of g++ on
@@ -103,4 +103,4 @@ https://github.com/jinmei/queryperfpp
   "gross" maximum performance.
 - Provide a Python wrapper interface, especially with the stand alone
   mode.  We'll then be able to directly measure the gross performance
-  of BIND 10 Python programs such as the xfrout daemon.
+  of Bundy Python programs such as the xfrout daemon.

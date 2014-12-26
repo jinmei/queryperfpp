@@ -6,6 +6,7 @@ AC_INIT(queryperfpp, 0.9.0, jinmei@wide.ad.jp)
 AC_CONFIG_SRCDIR(README)
 AM_INIT_AUTOMAKE
 AC_CONFIG_HEADERS([config.h])
+AC_CONFIG_MACRO_DIR([m4])
 
 # Checks for programs.
 AC_PROG_CXX
@@ -53,7 +54,7 @@ CXXFLAGS_SAVED="$CXXFLAGS"
 CXXFLAGS="$CXXFLAGS -Werror"
 AC_MSG_CHECKING(for in-TU anonymous namespace breakage)
 AC_TRY_COMPILE([namespace { class Foo {}; }
-namespace isc {class Bar {Foo foo_;};} ],,
+namespace bundy {class Bar {Foo foo_;};} ],,
 	[AC_MSG_RESULT(no)
 	 werror_ok=1
 	 CXX_WERROR_FLAGS="-Werror"],

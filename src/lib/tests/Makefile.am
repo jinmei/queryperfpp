@@ -12,12 +12,12 @@ run_unittests_SOURCES += test_message_manager.h test_message_manager.cc
 run_unittests_SOURCES += common_test.h common_test.cc
 
 run_unittests_CPPFLAGS = $(AM_CPPFLAGS) $(BOOST_CPPFLAGS) $(GTEST_CPPFLAGS)
-run_unittests_CPPFLAGS += $(BIND10_CPPFLAGS)
+run_unittests_CPPFLAGS += $(BUNDY_CPPFLAGS)
 
-run_unittests_LDFLAGS = $(GTEST_LDFLAGS) $(BIND10_LDFLAGS) $(AM_LDFLAGS)
+run_unittests_LDFLAGS = $(GTEST_LDFLAGS) $(BUNDY_LDFLAGS) $(AM_LDFLAGS)
 
 run_unittests_LDADD = $(top_builddir)/src/lib/libqueryperf++.la
-run_unittests_LDADD += $(GTEST_LDADD) $(BIND10_LDADD)
+run_unittests_LDADD += $(GTEST_LDADD) $(BUNDY_LDADD)
 endif
 
 noinst_PROGRAMS = $(TESTS)

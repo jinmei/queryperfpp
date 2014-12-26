@@ -70,8 +70,8 @@ BUNDY_SRC_DIR, and BOOST_HEADER_DIR, the following step should
 just work for building queryperf++:
 
 % ./configure --with-boost-include=${BOOST_HEADER_DIR} \
-    --with-bind10-include=${BUNDY_SRC_DIR}/src/lib \
-    --with-bind10-lib=${BUNDY_INSTALL_DIR} \
+    --with-bundy-include=${BUNDY_SRC_DIR}/src/lib \
+    --with-bundy-lib=${BUNDY_INSTALL_DIR} \
     --with-asio-include=${BUNDY_SRC_DIR}/ext/asio
 % make
 

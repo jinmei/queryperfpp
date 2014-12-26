@@ -4,9 +4,9 @@
 // purpose with or without fee is hereby granted, provided that the above
 // copyright notice and this permission notice appear in all copies.
 //
-// THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES WITH
+// THE SOFTWARE IS PROVIDED "AS IS" AND BUNDY DBUNDYLAIMS ALL WARRANTIES WITH
 // REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
-// AND FITNESS.  IN NO EVENT SHALL ISC BE LIABLE FOR ANY SPECIAL, DIRECT,
+// AND FITNESS.  IN NO EVENT SHALL BUNDY BE LIABLE FOR ANY SPECIAL, DIRECT,
 // INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
 // LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
 // OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
@@ -39,8 +39,8 @@
 #include <netinet/in.h>
 
 using namespace std;
-using namespace isc::util;
-using namespace isc::dns;
+using namespace bundy::util;
+using namespace bundy::dns;
 using namespace Queryperf;
 using boost::scoped_ptr;
 using namespace boost::posix_time;
@@ -383,7 +383,7 @@ Dispatcher::setDefaultQueryClass(const std::string& qclass_txt) {
 
     try {
         impl_->qry_repo_local_->setQueryClass(RRClass(qclass_txt));
-    } catch (const isc::Exception&) {
+    } catch (const bundy::Exception&) {
         throw DispatcherError("invalid query class: " + qclass_txt);
     }
 }

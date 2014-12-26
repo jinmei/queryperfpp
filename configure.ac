@@ -14,7 +14,7 @@ AC_PROG_LIBTOOL
 AC_LANG([C++])
 
 # Checks for BUNDY headers and libraries
-AX_BUNDY
+AX_BUNDY_BUNDY
 
 # We use -R, -rpath etc so the resulting program will be more likekly to
 # "just work" whenever they are available.

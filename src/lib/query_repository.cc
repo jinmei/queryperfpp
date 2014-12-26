@@ -4,9 +4,9 @@
 // purpose with or without fee is hereby granted, provided that the above
 // copyright notice and this permission notice appear in all copies.
 //
-// THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES WITH
+// THE SOFTWARE IS PROVIDED "AS IS" AND BUNDY DBUNDYLAIMS ALL WARRANTIES WITH
 // REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
-// AND FITNESS.  IN NO EVENT SHALL ISC BE LIABLE FOR ANY SPECIAL, DIRECT,
+// AND FITNESS.  IN NO EVENT SHALL BUNDY BE LIABLE FOR ANY SPECIAL, DIRECT,
 // INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
 // LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
 // OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
@@ -40,7 +40,7 @@
 using namespace std;
 using boost::lexical_cast;
 using boost::scoped_ptr;
-using namespace isc::dns;
+using namespace bundy::dns;
 
 namespace {
 // an ad hoc threadshold to prevent a busy loop due to an empty input file.
@@ -248,7 +248,7 @@ QueryRepository::QueryRepositoryImpl::readNextRequest(
                                     " 0 0 0 0"));
                 authorities.push_back(rrset);
             }
-        } catch (const isc::Exception& ex) {
+        } catch (const bundy::Exception& ex) {
             // The input data may contain bad string, which would trigger an
             // exception.  We ignore them and continue reading until we find
             // a valid one.

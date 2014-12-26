@@ -13,13 +13,13 @@ AC_PROG_LIBTOOL
 
 AC_LANG([C++])
 
-# Checks for BIND 10 headers and libraries
-AX_ISC_BIND10
+# Checks for BUNDY headers and libraries
+AX_BUNDY
 
 # We use -R, -rpath etc so the resulting program will be more likekly to
 # "just work" whenever they are available.
-if test "x$BIND10_RPATH" != "x"; then
-   LDFLAGS="$LDFLAGS $BIND10_RPATH"
+if test "x$BUNDY_RPATH" != "x"; then
+   LDFLAGS="$LDFLAGS $BUNDY_RPATH"
 fi
 
 # See if we need to be explicit for thread support.  While queryperf++ itself
@@ -30,9 +30,9 @@ PTHREAD_LDFLAGS=
 AC_CHECK_LIB(pthread, pthread_create,[ PTHREAD_LDFLAGS=-lpthread ], [])
 LDFLAGS="$LDFLAGS $PTHREAD_LDFLAGS"
 
-# Check for the BIND 10 DNS library.
-if test "x$BIND10_DNS_LIB" = "x"; then
-   AC_MSG_ERROR([unable to find BIND 10 DNS library])
+# Check for the BUNDY DNS library.
+if test "x$BUNDY_DNS_LIB" = "x"; then
+   AC_MSG_ERROR([unable to find Bundy DNS library])
 fi
 
 # Check ASIO header path and its dependency if necessary

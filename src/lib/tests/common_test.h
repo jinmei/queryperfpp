@@ -27,22 +27,25 @@ extern size_t default_expected_rr_counts[4];
 
 void
 queryMessageCheck(const void* data, size_t data_len,
-                  isc::dns::qid_t expected_qid,
-                  const isc::dns::Name& expected_qname,
-                  isc::dns::RRType expected_qtype,
+                  bundy::dns::qid_t expected_qid,
+                  const bundy::dns::Name& expected_qname,
+                  bundy::dns::RRType expected_qtype,
                   bool expected_edns = true,
                   bool expected_dnssec = true,
-                  isc::dns::RRClass expected_qclass = isc::dns::RRClass::IN());
+                  bundy::dns::RRClass expected_qclass =
+                  bundy::dns::RRClass::IN());
 
 void
-queryMessageCheck(const isc::dns::Message& msg, isc::dns::qid_t expected_qid,
-                  const isc::dns::Name& expected_qname,
-                  isc::dns::RRType expected_qtype,
+queryMessageCheck(const bundy::dns::Message& msg,
+                  bundy::dns::qid_t expected_qid,
+                  const bundy::dns::Name& expected_qname,
+                  bundy::dns::RRType expected_qtype,
                   const size_t expected_rr_counts[4] =
                   default_expected_rr_counts,
                   bool expected_edns = true,
                   bool expected_dnssec = true,
-                  isc::dns::RRClass expected_qclass = isc::dns::RRClass::IN());
+                  bundy::dns::RRClass expected_qclass =
+                  bundy::dns::RRClass::IN());
 } // end of unittest
 } // end of QueryPerf
 

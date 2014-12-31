@@ -28,8 +28,8 @@
 
 #include <netinet/in.h>
 
-using namespace isc::util;
-using namespace isc::dns;
+using namespace bundy::util;
+using namespace bundy::dns;
 
 using boost::shared_ptr;
 

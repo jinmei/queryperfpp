@@ -33,8 +33,8 @@
 #include <netinet/in.h>
 
 using namespace std;
-using namespace isc::dns;
-using namespace isc::util;
+using namespace bundy::dns;
+using namespace bundy::util;
 using namespace Queryperf;
 
 namespace {

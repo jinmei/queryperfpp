@@ -32,7 +32,7 @@
 #include <netinet/in.h>
 
 using namespace std;
-using namespace isc::dns;
+using namespace bundy::dns;
 using namespace Queryperf;
 using namespace Queryperf::unittest;
 

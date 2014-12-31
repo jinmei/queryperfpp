@@ -25,8 +25,8 @@
 
 #include <gtest/gtest.h>
 
-using namespace isc::dns;
-using namespace isc::util;
+using namespace bundy::dns;
+using namespace bundy::util;
 
 namespace Queryperf {
 namespace unittest {
